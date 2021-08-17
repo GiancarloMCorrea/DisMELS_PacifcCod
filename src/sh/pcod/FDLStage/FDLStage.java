@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.openide.util.lookup.ServiceProvider;
 import sh.pcod.IBMFunction_NonEggStageSTDGrowthRateDW;
+import sh.pcod.IBMFunction_NonEggStageBIOENGrowthRateDW;
 import sh.pcod.IBMFunction_NonEggStageSTDGrowthRateSL;
 import wts.models.DisMELS.IBMFunctions.Mortality.ConstantMortalityRate;
 import wts.models.DisMELS.IBMFunctions.Mortality.InversePowerLawMortalityRate;
@@ -424,10 +425,13 @@ public class FDLStage extends AbstractLHS {
             else if (fcnGrSL instanceof IBMFunction_FDL_GrowthRateSL)    
                 typeGrSL = FDLStageParameters.FCN_GrSL_FDL_GrowthRate;
             
-            if (fcnGrDW instanceof IBMFunction_NonEggStageSTDGrowthRateDW) 
+            if (fcnGrDW instanceof IBMFunction_NonEggStageSTDGrowthRateDW) {
                 typeGrDW = FDLStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate;
-            else if (fcnGrDW instanceof IBMFunction_FDL_GrowthRateDW)    
+            } else if (fcnGrDW instanceof IBMFunction_FDL_GrowthRateDW) {  
                 typeGrDW = FDLStageParameters.FCN_GrDW_FDL_GrowthRate;
+            } else if (fcnGrDW instanceof IBMFunction_NonEggStageBIOENGrowthRateDW) {
+                typeGrDW = FDLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate;
+            }
             
             if (fcnVM instanceof DielVerticalMigration_FixedDepthRanges)   
                 typeVM = FDLStageParameters.FCN_VM_DVM_FixedDepthRanges;
@@ -658,6 +662,7 @@ public class FDLStage extends AbstractLHS {
         
         time += dt;
         double dtday = dt/86400; //time setp in days
+        double deltaH = dtday*24; //deltaH as in TROND
         
         if (typeGrSL==FDLStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate)
             grSL = (Double) fcnGrSL.calculate(new Double[]{T,std_len});
@@ -667,8 +672,10 @@ public class FDLStage extends AbstractLHS {
             grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt});
         if (typeGrDW==FDLStageParameters.FCN_GrDW_FDL_GrowthRate)
             grDW = (Double) fcnGrDW.calculate(T);
+        if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate)
+            grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,deltaH});
         std_len += grSL*dtday;            //mm dSL/dt = grSL
-        dry_wgt *= Math.exp(grDW * dtday);//mg dDW/dt = grDW*DW
+        dry_wgt += grDW; //WARNING:specific for BIOEN model. ADD meta and activityCost
         
         updateNum(dt);
         updateAge(dt);

@@ -26,6 +26,7 @@ import java.util.List;
 import org.openide.util.lookup.ServiceProvider;
 import sh.pcod.EggStage.EggStageAttributes;
 import sh.pcod.IBMFunction_NonEggStageSTDGrowthRateDW;
+import sh.pcod.IBMFunction_NonEggStageBIOENGrowthRateDW;
 import sh.pcod.IBMFunction_NonEggStageSTDGrowthRateSL;
 import wts.models.DisMELS.IBMFunctions.Mortality.ConstantMortalityRate;
 import wts.models.DisMELS.IBMFunctions.Mortality.InversePowerLawMortalityRate;

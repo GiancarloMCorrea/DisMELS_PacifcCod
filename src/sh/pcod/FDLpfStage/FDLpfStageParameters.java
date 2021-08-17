@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.logging.Logger;
 import org.openide.util.lookup.ServiceProvider;
 import sh.pcod.IBMFunction_NonEggStageSTDGrowthRateDW;
+import sh.pcod.IBMFunction_NonEggStageBIOENGrowthRateDW;
 import sh.pcod.IBMFunction_NonEggStageSTDGrowthRateSL;
 import wts.models.DisMELS.IBMFunctions.Mortality.ConstantMortalityRate;
 import wts.models.DisMELS.IBMFunctions.Mortality.InversePowerLawMortalityRate;
@@ -68,8 +69,9 @@ public class FDLpfStageParameters extends AbstractLHSParameters {
     public static final int FCN_GrSL_NonEggStageSTDGrowthRate = 1;
     public static final int FCN_GrSL_FDLpf_GrowthRate         = 2;
     
-    public static final int FCN_GrDW_NonEggStageSTDGrowthRate = 1;
-    public static final int FCN_GrDW_FDLpf_GrowthRate         = 2;
+    public static final int FCN_GrDW_NonEggStageSTDGrowthRate    = 1;
+    public static final int FCN_GrDW_FDLpf_GrowthRate            = 2;
+    public static final int FCN_GrDW_NonEggStageBIOENGrowthRate  = 3;
     
     public static final int FCN_VM_DVM_FixedDepthRanges = 1;
     
@@ -132,10 +134,11 @@ public class FDLpfStageParameters extends AbstractLHSParameters {
         ifi = new IBMFunction_NonEggStageSTDGrowthRateSL(); mapOfPotentialFunctions.put(ifi.getFunctionName(),ifi);
         
         cat = FCAT_GrowthDW; 
-        mapOfPotentialFunctions = new LinkedHashMap<>(2); 
+        mapOfPotentialFunctions = new LinkedHashMap<>(3); 
         mapOfPotentialFunctionsByCategory.put(cat,mapOfPotentialFunctions);
         ifi = new IBMFunction_FDLpf_GrowthRateDW();           mapOfPotentialFunctions.put(ifi.getFunctionName(),ifi);
         ifi = new IBMFunction_NonEggStageSTDGrowthRateDW(); mapOfPotentialFunctions.put(ifi.getFunctionName(),ifi);
+        ifi = new IBMFunction_NonEggStageBIOENGrowthRateDW(); mapOfPotentialFunctions.put(ifi.getFunctionName(),ifi);
         
         cat = FCAT_VerticalMovement;  
         mapOfPotentialFunctions = new LinkedHashMap<>(4); 
