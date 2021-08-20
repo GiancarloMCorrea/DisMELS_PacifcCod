@@ -47,7 +47,7 @@ public class IBMFunction_NonEggStageSTDGrowthRateDW extends AbstractIBMFunction 
         "\n\t* Value:"+
         "\n\t*      r - Double - intrinsic STDG growth rate in dry weight (g/g/d) for egg stages"+
         "\n\t* Calculation:"+
-        "\n\t*     r = ((0.454 + 1.610*t - 0.069*t*t)*exp(-6.725*m)+3.705)/100; (original in %/d)"+
+        "\n\t*     r = ((0.454 + 1.610*t - 0.069*t*t)*exp(-6.725*m))/100; (original in %/d)"+
         "\n\t* "+
         "\n\t*  Citation:"+
         "\n\t* Hurst et al. 2010, eq. 4."+
@@ -91,7 +91,7 @@ public class IBMFunction_NonEggStageSTDGrowthRateDW extends AbstractIBMFunction 
         Double[] vals = (Double[]) o;
         double t = vals[0];
         double m = vals[1];
-        double r = ((0.454 + 1.610*t - 0.069*t*t)*Math.exp(-6.725*m)+3.705)/100;// original in %/d
+        double r = ((0.454 + 1.610*t - 0.069*t*t)*Math.exp(-6.725*m))/100;// original in %/d
         return (Double) r;
     }
     

@@ -662,21 +662,42 @@ public class FDLStage extends AbstractLHS {
         
         time += dt;
         double dtday = dt/86400; //time setp in days
-        double deltaH = dtday*24; //deltaH as in TROND
+        double eb2 = 0; // create second part of eb
+        double eb = 0; // create light object
+        double chla = 2.5; // test chl-a. Implement real function later
         
+        // Length:
         if (typeGrSL==FDLStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate)
             grSL = (Double) fcnGrSL.calculate(new Double[]{T,std_len});
         else if (typeGrSL==FDLStageParameters.FCN_GrSL_FDL_GrowthRate)
             grSL = (Double) fcnGrSL.calculate(T);
+
+        // Weight:
         if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate)
             grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt});
         if (typeGrDW==FDLStageParameters.FCN_GrDW_FDL_GrowthRate)
             grDW = (Double) fcnGrDW.calculate(T);
-        if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate)
-            grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,deltaH});
-        std_len += grSL*dtday;            //mm dSL/dt = grSL
-        dry_wgt += grDW; //WARNING:specific for BIOEN model. ADD meta and activityCost
-        
+        if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate){
+            // Light:
+            CalendarIF cal = null;
+            double[] sstmp = null;
+            double[] sstmp2 = null;
+            cal = GlobalInfo.getInstance().getCalendar();
+            sstmp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal.getYearDay());
+            sstmp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal.getYearDay(), sstmp[0]/0.217);
+            eb2 = (Double) IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(new Double[]{chla,depth}); // second part of eb
+            eb = sstmp2[1]*eb2;
+            grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,std_len}); //should length be at t or t-1?
+        }
+
+        // Length and weight at t:
+        std_len += grSL*dtday; //mm dSL/dt = grSL
+        dry_wgt *= Math.exp(grDW*dtday);//mg dDW/dt = grDW*DW, WARNING:specific for BIOEN model. ADD meta and activityCost
+
+        // Print light in grSL field, just to check the calculation (temporally):
+        grSL = eb;
+        grDW = depth;
+
         updateNum(dt);
         updateAge(dt);
         updatePosition(pos);
