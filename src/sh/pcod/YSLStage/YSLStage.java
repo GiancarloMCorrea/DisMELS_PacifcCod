@@ -103,6 +103,8 @@ public class YSLStage extends AbstractLHS {
     protected double std_len = 0;
     /** dry weight (mg) */
     protected double dry_wgt = 0;
+    /** stomach state (units) */
+    protected double stmsta = 0;
     /** growth rate for standard length (mm/d) */
     protected double grSL = 0;
     /** growth rate for dry weight (1/d) */
@@ -343,6 +345,7 @@ public class YSLStage extends AbstractLHS {
             //need to base YSL DW on YSL SL regression because YSL DW doesn't include yolk-sac
             double DW = (Double) fcnSLtoDW.calculate(SL);
             atts.setValue(YSLStageAttributes.PROP_DW,DW);
+            atts.setValue(YSLStageAttributes.PROP_stmsta,stmsta);                   
             atts.setValue(YSLStageAttributes.PROP_grSL,oldAtts.getValue(EggStageAttributes.PROP_grSL, grSL));
             atts.setValue(YSLStageAttributes.PROP_grDW,oldAtts.getValue(EggStageAttributes.PROP_grDW, grDW));
             //need to set attributes NOT included in EggStageAttributes
@@ -357,7 +360,7 @@ public class YSLStage extends AbstractLHS {
             //set the following attributes to initial values 
             atts.setValue(YSLStageAttributes.PROP_progYSA,progYSA);
             atts.setValue(YSLStageAttributes.PROP_progPNR,progPNR);
-            atts.setValue(YSLStageAttributes.PROP_prNotFed,prNotFed);            
+            atts.setValue(YSLStageAttributes.PROP_prNotFed,prNotFed);     
         } else {
             //TODO: should throw an error here
             logger.info("setAttributes(): no match for attributes type:"+newAtts.toString());
@@ -799,6 +802,10 @@ public class YSLStage extends AbstractLHS {
                     }
                 }
             }
+
+            // HERE ADD stmsta (Initial value): TODO: check this later and link it to feeding
+            stmsta = 0.3*0.06*dry_wgt; // stomach_threshold = 0.3, gut_size = 0.06
+
         }
           
         updateNum(dt);
@@ -1043,6 +1050,7 @@ public class YSLStage extends AbstractLHS {
         atts.setValue(YSLStageAttributes.PROP_attached,attached);
         atts.setValue(YSLStageAttributes.PROP_SL,std_len);
         atts.setValue(YSLStageAttributes.PROP_DW,dry_wgt);
+        atts.setValue(YSLStageAttributes.PROP_stmsta,stmsta);
         atts.setValue(YSLStageAttributes.PROP_grSL,grSL);
         atts.setValue(YSLStageAttributes.PROP_grDW,grDW);
         atts.setValue(YSLStageAttributes.PROP_temperature,temperature);
@@ -1064,7 +1072,8 @@ public class YSLStage extends AbstractLHS {
         super.updateVariables();
         attached    = atts.getValue(YSLStageAttributes.PROP_attached,attached);
         std_len     = atts.getValue(YSLStageAttributes.PROP_SL,std_len); 
-        dry_wgt     = atts.getValue(YSLStageAttributes.PROP_DW,dry_wgt); 
+        dry_wgt     = atts.getValue(YSLStageAttributes.PROP_DW,dry_wgt);
+        stmsta    = atts.getValue(YSLStageAttributes.PROP_stmsta,stmsta);  
         grSL        = atts.getValue(YSLStageAttributes.PROP_grSL,grSL); 
         grDW        = atts.getValue(YSLStageAttributes.PROP_grDW,grDW); 
         temperature = atts.getValue(YSLStageAttributes.PROP_temperature,temperature);

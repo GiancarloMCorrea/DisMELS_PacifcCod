@@ -31,6 +31,7 @@ import sh.pcod.YSLStage.YSLStageAttributes;
 import wts.models.DisMELS.IBMFunctions.Movement.DielVerticalMigration_FixedDepthRanges;
 import wts.models.utilities.CalendarIF;
 import wts.roms.model.Interpolator3D;
+// import wts.roms.model.Interpolator2D;
 
 /**
  *
@@ -64,7 +65,15 @@ public class FDLStage extends AbstractLHS {
     private static final String Eup = "Eup";
     /* string identifying environmental field with neocalanus densities */
     private static final String NCa = "NCa";
-    
+    /* string identifying environmental field with large phytoplankton densities */
+    private static final String PhL = "PhL";
+    /* string identifying environmental field with small phytoplankton densities */
+    private static final String PhS = "PhS";
+    /* string identifying environmental field with u surface stress */
+    private static final String Su = "Su";
+    /* string identifying environmental field with v surface stress */
+    private static final String Sv = "Sv";
+
     //Instance fields
             //  Fields hiding ones from superclass
     /* life stage atrbutes object */
@@ -89,6 +98,8 @@ public class FDLStage extends AbstractLHS {
     protected double std_len = 0;
     /** dry weight (mg) */
     protected double dry_wgt = 0;
+    /** stomach state (units) */
+    protected double stmsta = 0;
     /** growth rate for standard length (mm/d) */
     protected double grSL = 0;
     /** growth rate for dry weight (1/d) */
@@ -105,6 +116,14 @@ public class FDLStage extends AbstractLHS {
     protected double euphausiid = 0;
      /** in situ neocalanoid density (mg/m^3, dry wt) */
     protected double neocalanus = 0;
+     /** in situ large phytoplankton density (mg/m^3) */
+    protected double phytoL = 0;
+     /** in situ small phytoplankton density (mg/m^3) */
+    protected double phytoS = 0;
+     /** in situ u surface stress (N/m^2) */
+    protected double tauX = 0;
+     /** in situ v surface stress (N/m^2) */
+    protected double tauY = 0;
 
             //other fields
     /** number of individuals transitioning to next stage */
@@ -625,6 +644,9 @@ public class FDLStage extends AbstractLHS {
     public void step(double dt) throws ArrayIndexOutOfBoundsException {
         //WTS_NEW 2012-07-26:{
         double[] pos = lp.getIJK();
+        // double[] pos2d = null;
+        // pos2d[0] = pos[0];
+        // pos2d[1] = pos[1];
         //System.out.print("uv: "+r+"; "+uv[0]+", "+uv[1]+"\n");
         T = i3d.interpolateTemperature(pos);
         if(T<=0.0) T=0.01; 
@@ -632,7 +654,14 @@ public class FDLStage extends AbstractLHS {
         copepod    = i3d.interpolateValue(pos,Cop,Interpolator3D.INTERP_VAL);
         euphausiid = i3d.interpolateValue(pos,Eup,Interpolator3D.INTERP_VAL);
         neocalanus = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
-      
+        // ADD HERE OTHER ZOOPLANKTON PREY ITEMS
+        phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
+        phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
+        // tauX = i3d.interpolateValue(pos,Su,Interpolator2D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        // tauY = i3d.interpolateValue(pos,Sv,Interpolator2D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
+        // values 25 and 65 based on Kearney et al 2018 Table A4
+
         double[] uvw = calcUVW(pos,dt);//this also sets "attached" and may change pos[2] to 0
         //PRINT UVW
         if (attached){
@@ -660,11 +689,22 @@ public class FDLStage extends AbstractLHS {
             if (debug) logger.info("Depth after corrector step = "+(-i3d.calcZfromK(pos[0],pos[1],pos[2])));
         }
         
+        // BEGIN OF BIOEN CHANGES --------------------------------------------------------------
+
         time += dt;
         double dtday = dt/86400; //time setp in days
-        double eb2 = 0; // create second part of eb
-        double eb = 0; // create light object
-        double chla = 2.5; // test chl-a. Implement real function later
+
+        // create object for light calculation:
+        double eb2 = 0; // create second part of Eb equation
+        double eb = 0; // create Eb object
+
+        // Create objects for output of BIOEN
+        double gr_mg_fac = 0; // factor to avoid dry_wgt in IF 
+        double meta = 0;
+        double sum_ing = 0;
+        double assi = 0;
+        double old_dry_wgt = dry_wgt; // save previous dry_wgt
+        Double[] bioEN_output = null; // output object of BIOEN calculation
         
         // Length:
         if (typeGrSL==FDLStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate)
@@ -673,30 +713,67 @@ public class FDLStage extends AbstractLHS {
             grSL = (Double) fcnGrSL.calculate(T);
 
         // Weight:
-        if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate)
+        if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate) {
             grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt});
-        if (typeGrDW==FDLStageParameters.FCN_GrDW_FDL_GrowthRate)
+            gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
+        }
+        if (typeGrDW==FDLStageParameters.FCN_GrDW_FDL_GrowthRate) {
             grDW = (Double) fcnGrDW.calculate(T);
+            gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
+        }
         if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate){
-            // Light:
+
+            // Light (begin):
             CalendarIF cal = null;
-            double[] sstmp = null;
-            double[] sstmp2 = null;
-            cal = GlobalInfo.getInstance().getCalendar();
-            sstmp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal.getYearDay());
-            sstmp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal.getYearDay(), sstmp[0]/0.217);
-            eb2 = (Double) IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(new Double[]{chla,depth}); // second part of eb
-            eb = sstmp2[1]*eb2;
-            grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,std_len}); //should length be at t or t-1?
+            double[] ltemp = null;
+            double[] ltemp2 = null;
+            cal = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
+            ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal.getYearDay()); // see line 713 in ibm.py
+            double maxLight = ltemp[1]/0.217; // see line 714 in ibm.py
+            ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal.getYearDay(), maxLight); // see line 715 in ibm.py
+            eb2 = (Double) IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(new Double[]{chlorophyll,depth}); // second part of Eb equation
+            eb = ltemp2[1]*eb2; // see line 727 in ibm.py. This is Eb
+            // Light (end):
+
+            // Turbulence and wind (begin)
+            double tauX = -0.15; // TODO: link with ROMS output. Surface stress In N/m^2
+            double tauY = 0.1; // TODO: link with ROMS output. Surface stress In N/m^2
+            double windX = Math.abs(Math.sqrt(Math.abs(tauX)/(1.3*1.2E-3))); // Wind velocity In m/s
+            double windY = Math.abs(Math.sqrt(Math.abs(tauY)/(1.3*1.2E-3))); // Wind velocity In m/s
+            // Turbulence and wind (end)
+
+            // Bioenergetic growth calculation:
+            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,dtday,std_len,eb,windX,windY,depth,stmsta,copepod}); //should length be at t or t-1?
+            grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
+            meta = bioEN_output[1];
+            sum_ing = bioEN_output[2];
+            assi = bioEN_output[3];
+            double costRateOfMetabolism = 0.5; // check this number
+            double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
+
+            // Update values:
+            stmsta = Math.max(0, Math.min(0.06*dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
+            gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
+            
+            // TODO: check how length and weight work
+
+            // TODO: check how to output more variables to the CSV files
+
         }
 
         // Length and weight at t:
         std_len += grSL*dtday; //mm dSL/dt = grSL
-        dry_wgt *= Math.exp(grDW*dtday);//mg dDW/dt = grDW*DW, WARNING:specific for BIOEN model. ADD meta and activityCost
+        // dry_wgt *= Math.exp(grDW*dtday); // mg dDW/dt = grDW*DW. The right equation is: Math.exp(grDW*dtday)
+        dry_wgt += gr_mg_fac;
 
         // Print light in grSL field, just to check the calculation (temporally):
-        grSL = eb;
-        grDW = depth;
+        grSL = grSL;
+        grDW = gr_mg_fac;
+
+        // Update (again) stmsta for next time step:
+        stmsta = Math.max(0, stmsta - ((dry_wgt - old_dry_wgt) + meta)/assi);
+
+        // END OF BIOEN CHANGES ------------------------------------
 
         updateNum(dt);
         updateAge(dt);
@@ -928,6 +1005,7 @@ public class FDLStage extends AbstractLHS {
         atts.setValue(FDLStageAttributes.PROP_attached,attached);
         atts.setValue(FDLStageAttributes.PROP_SL,std_len);
         atts.setValue(FDLStageAttributes.PROP_DW,dry_wgt);
+        atts.setValue(FDLStageAttributes.PROP_stmsta,stmsta);
         atts.setValue(FDLStageAttributes.PROP_grSL,grSL);
         atts.setValue(FDLStageAttributes.PROP_grDW,grDW);
         atts.setValue(FDLStageAttributes.PROP_temperature,temperature);    
@@ -947,6 +1025,7 @@ public class FDLStage extends AbstractLHS {
         attached     = atts.getValue(FDLStageAttributes.PROP_attached,attached);
         std_len      = atts.getValue(FDLStageAttributes.PROP_SL,std_len);
         dry_wgt      = atts.getValue(FDLStageAttributes.PROP_DW,dry_wgt);
+        stmsta      = atts.getValue(FDLStageAttributes.PROP_stmsta,stmsta);
         grSL         = atts.getValue(FDLStageAttributes.PROP_grSL,grSL);
         grDW         = atts.getValue(FDLStageAttributes.PROP_grDW,grDW);
         temperature = atts.getValue(FDLStageAttributes.PROP_temperature,temperature);
