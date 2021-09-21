@@ -644,9 +644,9 @@ public class FDLStage extends AbstractLHS {
     public void step(double dt) throws ArrayIndexOutOfBoundsException {
         //WTS_NEW 2012-07-26:{
         double[] pos = lp.getIJK();
-        // double[] pos2d = new double[2];
-        // pos2d[0] = pos[0];
-        // pos2d[1] = pos[1];
+        double[] pos2d = new double[2];
+        pos2d[0] = pos[0];
+        pos2d[1] = pos[1];
         //System.out.print("uv: "+r+"; "+uv[0]+", "+uv[1]+"\n");
         T = i3d.interpolateTemperature(pos);
         if(T<=0.0) T=0.01; 
@@ -657,8 +657,8 @@ public class FDLStage extends AbstractLHS {
         // ADD HERE OTHER ZOOPLANKTON PREY ITEMS
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
-        // double tauX = i3d.interpolateValue(pos2d,Su,"mask_u",Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
-        // double tauY = i3d.interpolateValue(pos2d,Sv,"mask_v",Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        //double tauX = i3d.interpolateValue(pos2d,Su,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        //double tauY = i3d.interpolateValue(pos2d,Sv,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double tauX = -0.15; // TODO: link with ROMS output. Surface stress In N/m^2
         double tauY = 0.1; // TODO: link with ROMS output. Surface stress In N/m^2
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
