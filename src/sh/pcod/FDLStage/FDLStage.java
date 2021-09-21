@@ -117,13 +117,13 @@ public class FDLStage extends AbstractLHS {
      /** in situ neocalanoid density (mg/m^3, dry wt) */
     protected double neocalanus = 0;
      /** in situ large phytoplankton density (mg/m^3) */
-    protected double phytoL = 0;
+    // protected double phytoL = 0;
      /** in situ small phytoplankton density (mg/m^3) */
-    protected double phytoS = 0;
+    // protected double phytoS = 0;
      /** in situ u surface stress (N/m^2) */
-    protected double tauX = 0;
+    // protected double tauX = 0;
      /** in situ v surface stress (N/m^2) */
-    protected double tauY = 0;
+    // protected double tauY = 0;
 
             //other fields
     /** number of individuals transitioning to next stage */
@@ -644,7 +644,7 @@ public class FDLStage extends AbstractLHS {
     public void step(double dt) throws ArrayIndexOutOfBoundsException {
         //WTS_NEW 2012-07-26:{
         double[] pos = lp.getIJK();
-        // double[] pos2d = null;
+        // double[] pos2d = new double[2];
         // pos2d[0] = pos[0];
         // pos2d[1] = pos[1];
         //System.out.print("uv: "+r+"; "+uv[0]+", "+uv[1]+"\n");
@@ -655,10 +655,12 @@ public class FDLStage extends AbstractLHS {
         euphausiid = i3d.interpolateValue(pos,Eup,Interpolator3D.INTERP_VAL);
         neocalanus = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
         // ADD HERE OTHER ZOOPLANKTON PREY ITEMS
-        phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
-        phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
-        // tauX = i3d.interpolateValue(pos,Su,Interpolator2D.INTERP_VAL); // 3D interpolator but should use 2D internally
-        // tauY = i3d.interpolateValue(pos,Sv,Interpolator2D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
+        double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
+        // double tauX = i3d.interpolateValue(pos2d,Su,"mask_u",Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        // double tauY = i3d.interpolateValue(pos2d,Sv,"mask_v",Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        double tauX = -0.15; // TODO: link with ROMS output. Surface stress In N/m^2
+        double tauY = 0.1; // TODO: link with ROMS output. Surface stress In N/m^2
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4
 
@@ -694,17 +696,13 @@ public class FDLStage extends AbstractLHS {
         time += dt;
         double dtday = dt/86400; //time setp in days
 
-        // create object for light calculation:
-        double eb2 = 0; // create second part of Eb equation
-        double eb = 0; // create Eb object
-
-        // Create objects for output of BIOEN
+        // Create objects for output of BIOEN:
+        Double[] bioEN_output = null; // output object of BIOEN calculation
         double gr_mg_fac = 0; // factor to avoid dry_wgt in IF 
         double meta = 0;
         double sum_ing = 0;
         double assi = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
-        Double[] bioEN_output = null; // output object of BIOEN calculation
         
         // Length:
         if (typeGrSL==FDLStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate)
@@ -724,6 +722,9 @@ public class FDLStage extends AbstractLHS {
         if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate){
 
             // Light (begin):
+            // create object for light calculation:
+            double eb2 = 0; // create second part of Eb equation
+            double eb = 0; // create Eb object
             CalendarIF cal = null;
             double[] ltemp = null;
             double[] ltemp2 = null;
@@ -736,8 +737,6 @@ public class FDLStage extends AbstractLHS {
             // Light (end):
 
             // Turbulence and wind (begin)
-            double tauX = -0.15; // TODO: link with ROMS output. Surface stress In N/m^2
-            double tauY = 0.1; // TODO: link with ROMS output. Surface stress In N/m^2
             double windX = Math.abs(Math.sqrt(Math.abs(tauX)/(1.3*1.2E-3))); // Wind velocity In m/s
             double windY = Math.abs(Math.sqrt(Math.abs(tauY)/(1.3*1.2E-3))); // Wind velocity In m/s
             // Turbulence and wind (end)
@@ -759,6 +758,10 @@ public class FDLStage extends AbstractLHS {
 
             // TODO: check how to output more variables to the CSV files
 
+            // TODO: decide how many days a larva can survive without food
+
+            // TODO: try paper formulation of what growth equations to use.
+
         }
 
         // Length and weight at t:
@@ -767,7 +770,7 @@ public class FDLStage extends AbstractLHS {
         dry_wgt += gr_mg_fac;
 
         // Print light in grSL field, just to check the calculation (temporally):
-        grSL = grSL;
+        grSL = sum_ing;
         grDW = gr_mg_fac;
 
         // Update (again) stmsta for next time step:

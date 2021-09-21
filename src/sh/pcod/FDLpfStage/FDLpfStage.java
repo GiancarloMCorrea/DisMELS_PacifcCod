@@ -65,6 +65,14 @@ public class FDLpfStage extends AbstractLHS {
     private static final String Eup = "Eup";
     /* string identifying environmental field with neocalanus densities */
     private static final String NCa = "NCa";
+    /* string identifying environmental field with large phytoplankton densities */
+    private static final String PhL = "PhL";
+    /* string identifying environmental field with small phytoplankton densities */
+    private static final String PhS = "PhS";
+    /* string identifying environmental field with u surface stress */
+    private static final String Su = "Su";
+    /* string identifying environmental field with v surface stress */
+    private static final String Sv = "Sv";
     
     //Instance fields
             //  Fields hiding ones from superclass
@@ -90,6 +98,8 @@ public class FDLpfStage extends AbstractLHS {
     protected double std_len = 0;
     /** dry weight (mg) */
     protected double dry_wgt = 0;
+    /** stomach state (units) */
+    protected double stmsta = 0;
     /** growth rate for standard length (mm/d) */
     protected double grSL = 0;
     /** growth rate for dry weight (1/d) */
@@ -422,10 +432,13 @@ public class FDLpfStage extends AbstractLHS {
             else if (fcnGrSL instanceof IBMFunction_FDLpf_GrowthRateSL)    
                 typeGrSL = FDLpfStageParameters.FCN_GrSL_FDLpf_GrowthRate;
             
-            if (fcnGrDW instanceof IBMFunction_NonEggStageSTDGrowthRateDW) 
+            if (fcnGrDW instanceof IBMFunction_NonEggStageSTDGrowthRateDW) {
                 typeGrDW = FDLpfStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate;
-            else if (fcnGrDW instanceof IBMFunction_FDLpf_GrowthRateDW)    
+            } else if (fcnGrDW instanceof IBMFunction_FDLpf_GrowthRateDW) {  
                 typeGrDW = FDLpfStageParameters.FCN_GrDW_FDLpf_GrowthRate;
+            } else if (fcnGrDW instanceof IBMFunction_NonEggStageBIOENGrowthRateDW) {
+                typeGrDW = FDLpfStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate;
+            }
             
             if (fcnVM instanceof DielVerticalMigration_FixedDepthRanges)   
                 typeVM = FDLpfStageParameters.FCN_VM_DVM_FixedDepthRanges;
@@ -619,6 +632,9 @@ public class FDLpfStage extends AbstractLHS {
     public void step(double dt) throws ArrayIndexOutOfBoundsException {
         //WTS_NEW 2012-07-26:{
         double[] pos = lp.getIJK();
+        // double[] pos2d = new double[2];
+        // pos2d[0] = pos[0];
+        // pos2d[1] = pos[1];
         //SH_NEW
         T = i3d.interpolateTemperature(pos);
         if(T<=0.0) T=0.01; 
@@ -627,7 +643,16 @@ public class FDLpfStage extends AbstractLHS {
         copepod    = i3d.interpolateValue(pos,Cop,Interpolator3D.INTERP_VAL);
         euphausiid = i3d.interpolateValue(pos,Eup,Interpolator3D.INTERP_VAL);
         neocalanus = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
-             
+        // ADD HERE OTHER ZOOPLANKTON PREY ITEMS
+        double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
+        double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
+        // double tauX = i3d.interpolateValue(pos2d,Su,"mask_u",Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        // double tauY = i3d.interpolateValue(pos2d,Sv,"mask_v",Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        double tauX = -0.15; // TODO: link with ROMS output. Surface stress In N/m^2
+        double tauY = 0.1; // TODO: link with ROMS output. Surface stress In N/m^2
+        double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
+        // values 25 and 65 based on Kearney et al 2018 Table A4
+
         double[] uvw = calcUVW(pos,dt);//this also sets "attached" and may change pos[2] to 0
         if (attached){
             lp.setIJK(pos[0], pos[1], pos[2]);
@@ -653,20 +678,86 @@ public class FDLpfStage extends AbstractLHS {
             if (debug) logger.info("Depth after corrector step = "+(-i3d.calcZfromK(pos[0],pos[1],pos[2])));
         }
         
+
+        // BEGIN OF BIOEN CHANGES --------------------------------------------------------------
+
         time += dt;
         double dtday = dt/86400; //time setp in days
+
+        // Create objects for output of BIOEN:
+        Double[] bioEN_output = null; // output object of BIOEN calculation
+        double gr_mg_fac = 0; // factor to avoid dry_wgt in IF 
+        double meta = 0;
+        double sum_ing = 0;
+        double assi = 0;
+        double old_dry_wgt = dry_wgt; // save previous dry_wgt
         
+        // Length:
         if (typeGrSL==FDLpfStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate)
             grSL = (Double) fcnGrSL.calculate(new Double[]{T,std_len});
         else if (typeGrSL==FDLpfStageParameters.FCN_GrSL_FDLpf_GrowthRate)
             grSL = (Double) fcnGrSL.calculate(T);
-        if (typeGrDW==FDLpfStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate)
+
+        // Weight:
+        if (typeGrDW==FDLpfStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate) {
             grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt});
-        if (typeGrDW==FDLpfStageParameters.FCN_GrDW_FDLpf_GrowthRate)
+            gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
+        }
+        if (typeGrDW==FDLpfStageParameters.FCN_GrDW_FDLpf_GrowthRate) {
             grDW = (Double) fcnGrDW.calculate(T);
-        std_len += grSL*dtday;
-        dry_wgt *= Math.exp(grDW * dtday);
-        
+            gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
+        }
+        if (typeGrDW==FDLpfStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate){
+
+            // Light (begin):
+            // create object for light calculation:
+            double eb2 = 0; // create second part of Eb equation
+            double eb = 0; // create Eb object
+            CalendarIF cal = null;
+            double[] ltemp = null;
+            double[] ltemp2 = null;
+            cal = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
+            ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal.getYearDay()); // see line 713 in ibm.py
+            double maxLight = ltemp[1]/0.217; // see line 714 in ibm.py
+            ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal.getYearDay(), maxLight); // see line 715 in ibm.py
+            eb2 = (Double) IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(new Double[]{chlorophyll,depth}); // second part of Eb equation
+            eb = ltemp2[1]*eb2; // see line 727 in ibm.py. This is Eb
+            // Light (end):
+
+            // Turbulence and wind (begin)
+            double windX = Math.abs(Math.sqrt(Math.abs(tauX)/(1.3*1.2E-3))); // Wind velocity In m/s
+            double windY = Math.abs(Math.sqrt(Math.abs(tauY)/(1.3*1.2E-3))); // Wind velocity In m/s
+            // Turbulence and wind (end)
+
+            // Bioenergetic growth calculation:
+            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,dtday,std_len,eb,windX,windY,depth,stmsta,copepod}); //should length be at t or t-1?
+            grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
+            meta = bioEN_output[1];
+            sum_ing = bioEN_output[2];
+            assi = bioEN_output[3];
+            double costRateOfMetabolism = 0.5; // check this number
+            double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
+
+            // Update values:
+            stmsta = Math.max(0, Math.min(0.06*dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
+            gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
+
+        }
+
+        // Length and weight at t:
+        std_len += grSL*dtday; //mm dSL/dt = grSL
+        // dry_wgt *= Math.exp(grDW*dtday); // mg dDW/dt = grDW*DW. The right equation is: Math.exp(grDW*dtday)
+        dry_wgt += gr_mg_fac;
+
+        // Print light in grSL field, just to check the calculation (temporally):
+        grSL = sum_ing;
+        grDW = gr_mg_fac;
+
+        // Update (again) stmsta for next time step:
+        stmsta = Math.max(0, stmsta - ((dry_wgt - old_dry_wgt) + meta)/assi);
+
+        // END OF BIOEN CHANGES ------------------------------------
+
         updateNum(dt);
         updateAge(dt);
         updatePosition(pos);
@@ -894,6 +985,7 @@ public class FDLpfStage extends AbstractLHS {
         atts.setValue(FDLpfStageAttributes.PROP_attached,attached);
         atts.setValue(FDLpfStageAttributes.PROP_SL,std_len);
         atts.setValue(FDLpfStageAttributes.PROP_DW,dry_wgt);
+        atts.setValue(FDLStageAttributes.PROP_stmsta,stmsta);
         atts.setValue(FDLpfStageAttributes.PROP_grSL,grSL);
         atts.setValue(FDLpfStageAttributes.PROP_grDW,grDW);
         atts.setValue(FDLpfStageAttributes.PROP_temperature,temperature);    
@@ -913,6 +1005,7 @@ public class FDLpfStage extends AbstractLHS {
         attached    = atts.getValue(FDLpfStageAttributes.PROP_attached,attached);
         std_len     = atts.getValue(FDLpfStageAttributes.PROP_SL,std_len);
         dry_wgt     = atts.getValue(FDLpfStageAttributes.PROP_DW,dry_wgt);
+        stmsta      = atts.getValue(FDLStageAttributes.PROP_stmsta,stmsta);
         grSL        = atts.getValue(FDLpfStageAttributes.PROP_grSL,grSL);
         grDW        = atts.getValue(FDLpfStageAttributes.PROP_grDW,grDW);
         temperature = atts.getValue(FDLpfStageAttributes.PROP_temperature,temperature);

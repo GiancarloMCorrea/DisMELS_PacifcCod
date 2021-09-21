@@ -105,7 +105,8 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double copepod = vals[10]; // prey item 1
 
         // Begin function:
-        double meta = dt*2.38e-7*Math.exp(0.088*t)*Math.pow(m,0.9); // as in Kristiansen et al 2007. Units: mg/day (without dt)
+        double meta = dtday*2.38e-7*Math.exp(0.088*t)*Math.pow(m,0.9); // as in Kristiansen et al 2007. Units: mg/day (without dt). HERE I CHANGED dt FOR dtday 
+        // dtday makes more sense 
 
         if(eb > 0.001) {
             if(std_len > 5.5){
@@ -116,7 +117,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         } 
 
         double assi = 0.8*(1-0.4*Math.exp(-0.002*(m*1000-50)));// mg2ug=1000 here. No units
-        double r = ((0.454 + 1.610*t - 0.069*t*t)*Math.exp(-6.725*m))/100;// units: %/day?. THIS IS THE RETURN VALUE
+        double r = ((0.454 + 1.610*t - 0.069*t*t)*Math.exp(-6.725*m))/100;// units: 1/day. This is similar to 'g' (1/day) in TROND. 
         double gr_mg = m*(Math.exp(r*dtday) - 1); // Same as TROND
 
         // START FORAGING PART:
@@ -256,7 +257,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
             hand[i] = 0.264*Math.pow(10, (7.0151*(prey_len[i]/std_len)));
             enc[i] = ((0.667*Math.PI*Math.pow(visual,3)*travel + Math.PI*Math.pow(visual,2)*Math.sqrt(Math.pow(prey_len[i], 2) + 2*Math.pow(omega,2))*travel*2)*(1*prey_abun[i])*1e-6); // tau = 2. MultiplyPrey = 1. ltr2mm3 = 1E-6
-            ing[i] = dt*enc[i]*pca[i]*prey_wgt[i]*0.001/(1 + hand[i]); // ug2mg = 0.001. dt*deltaH (in TROND) = dt (in DisMELS), that is why I deleted deltaH
+            ing[i] = dtday*enc[i]*pca[i]*prey_wgt[i]*0.001/(1 + hand[i]); // ug2mg = 0.001. dt*deltaH (in TROND) = dt (in DisMELS), that is why I deleted deltaH. I used dtday
 
         }
         
@@ -453,7 +454,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             }
 
             // TODO: find reference for this number: it is assumed that 50% is carbon in one individual
-            double prey_item_1_ug = (prey_item_totabun_1*1000)*2; // COPEPODS: from ug C/m^3 to ug/m^3
+            double prey_item_1_ug = (prey_item_totabun_1*1000)*2; // COPEPODS: from mg C/m^3 to ug/m^3
 
             // Split prey items_ug in size categories:
             for(int i = 0; i < prey_length.length; i++){
