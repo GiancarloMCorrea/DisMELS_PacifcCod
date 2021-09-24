@@ -35,6 +35,7 @@ public class EggStageAttributes extends AbstractLHSAttributes   {
     public static final String PROP_stgProg     = "egg stage progression";
     public static final String PROP_SL          = "embryo SL (mm)";
     public static final String PROP_DW          = "embryo DW (mg)";
+    //public static final String PROP_stmsta      = "stomach state";
     public static final String PROP_grSL        = "growth rate for SL (mm/d)";
     public static final String PROP_grDW        = "growth rate for DW (1/d)";
     public static final String PROP_density     = "egg density";
@@ -103,6 +104,7 @@ public class EggStageAttributes extends AbstractLHSAttributes   {
             key = PROP_stgProg;    newKeys.add(key); mapAllAttributes.put(key,new IBMAttributeDouble(key,"stgProg"));
             key = PROP_SL;         newKeys.add(key); mapAllAttributes.put(key,new IBMAttributeDouble(key,"SL"));
             key = PROP_DW;         newKeys.add(key); mapAllAttributes.put(key,new IBMAttributeDouble(key,"DW"));
+            //key = PROP_stmsta;     newKeys.add(key); mapAllAttributes.put(key,new IBMAttributeDouble(key,"stmsta"));
             key = PROP_grSL;       newKeys.add(key); mapAllAttributes.put(key,new IBMAttributeDouble(key,"grSL"));
             key = PROP_grDW;       newKeys.add(key); mapAllAttributes.put(key,new IBMAttributeDouble(key,"grDW"));
             key = PROP_density;    newKeys.add(key); mapAllAttributes.put(key,new IBMAttributeDouble(key,"density"));
@@ -122,6 +124,7 @@ public class EggStageAttributes extends AbstractLHSAttributes   {
         tmpMapValues.put(PROP_stgProg,    new Double(0));
         tmpMapValues.put(PROP_SL,         new Double(0));
         tmpMapValues.put(PROP_DW,         new Double(0));
+        //tmpMapValues.put(PROP_stmsta,     new Double(0));
         tmpMapValues.put(PROP_grSL,       new Double(0));
         tmpMapValues.put(PROP_grDW,       new Double(0));
         tmpMapValues.put(PROP_density,    new Double(0));

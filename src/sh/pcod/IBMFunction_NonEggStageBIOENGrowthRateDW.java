@@ -103,6 +103,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double depth = vals[8];
         double stm_sta = vals[9]; // stomach 
         double copepod = vals[10]; // prey item 1
+        double attCoeff = vals[11]; // K parameter in Fiksen et al 2002
 
         // Begin function:
         double meta = dtday*2.38e-7*Math.exp(0.088*t)*Math.pow(m,0.9); // as in Kristiansen et al 2007. Units: mg/day (without dt). HERE I CHANGED dt FOR dtday 
@@ -139,7 +140,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double speed_prey = 100.0;
         double va = speed_fish*std_len;
         double ke_larvae = 1;
-        double attCoeff = 0.18;
+        //double attCoeff = 0.18; // TODO: change this, this should come from main code
         double beamAttCoeff = attCoeff*3;
         double ke_predator = 1;
 
@@ -256,6 +257,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             omega = omega * 1000; // m2mm = 1000. From m/s to mm/s
 
             hand[i] = 0.264*Math.pow(10, (7.0151*(prey_len[i]/std_len)));
+            // See Fiksen and MacKenzie 2002 Equation 1:
             enc[i] = ((0.667*Math.PI*Math.pow(visual,3)*travel + Math.PI*Math.pow(visual,2)*Math.sqrt(Math.pow(prey_len[i], 2) + 2*Math.pow(omega,2))*travel*2)*(1*prey_abun[i])*1e-6); // tau = 2. MultiplyPrey = 1. ltr2mm3 = 1E-6
             ing[i] = dtday*enc[i]*pca[i]*prey_wgt[i]*0.001/(1 + hand[i]); // ug2mg = 0.001. dt*deltaH (in TROND) = dt (in DisMELS), that is why I deleted deltaH. I used dtday
 
@@ -277,13 +279,17 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
     /**
      * Calculates light intensity 
      */
-    public static Object calcLight(Object o) {
-        Double[] vals = (Double[]) o;
-        double chla = vals[0];
-        double depth = vals[1];
+    public static double[] calcLight(double chla, double depth) {
+        double[] outp = new double[2];
         double attCoef = 0.1 + 0.054*Math.pow(chla, 2/3) + 0.0088*chla; // Attenuation coefficient. here k0 = 0.1
         double eb_tmp = Math.exp(-1*depth*attCoef);
-        return (Double) eb_tmp;
+
+        // create output:
+        outp[0] = attCoef; // K parameter
+        outp[1] = eb_tmp; // second part of Eb equation 
+
+        return outp;
+
     }
 
     public static double[] calcLightQSW(double lat, double time) {
@@ -360,7 +366,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         cawdir = 1-Math.max(0.15, 0.05/(scosz+0.15));
 
         // create output:
-        sstmp[0] = radfl0;
+        sstmp[0] = radfl0; // in W/m^2
         sstmp[1] = radmax;
         sstmp[2] = cawdir;
 

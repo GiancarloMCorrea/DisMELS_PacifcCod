@@ -632,9 +632,9 @@ public class FDLpfStage extends AbstractLHS {
     public void step(double dt) throws ArrayIndexOutOfBoundsException {
         //WTS_NEW 2012-07-26:{
         double[] pos = lp.getIJK();
-        // double[] pos2d = new double[2];
-        // pos2d[0] = pos[0];
-        // pos2d[1] = pos[1];
+        double[] pos2d = new double[2];
+        pos2d[0] = pos[0];
+        pos2d[1] = pos[1];
         //SH_NEW
         T = i3d.interpolateTemperature(pos);
         if(T<=0.0) T=0.01; 
@@ -646,10 +646,8 @@ public class FDLpfStage extends AbstractLHS {
         // ADD HERE OTHER ZOOPLANKTON PREY ITEMS
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
-        // double tauX = i3d.interpolateValue(pos2d,Su,"mask_u",Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
-        // double tauY = i3d.interpolateValue(pos2d,Sv,"mask_v",Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
-        double tauX = -0.15; // TODO: link with ROMS output. Surface stress In N/m^2
-        double tauY = 0.1; // TODO: link with ROMS output. Surface stress In N/m^2
+        double tauX = i3d.interpolateValue(pos2d,Su,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        double tauY = i3d.interpolateValue(pos2d,Sv,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4
 
@@ -691,7 +689,8 @@ public class FDLpfStage extends AbstractLHS {
         double sum_ing = 0;
         double assi = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
-        
+        double lat = pos[2];
+
         // Length:
         if (typeGrSL==FDLpfStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate)
             grSL = (Double) fcnGrSL.calculate(new Double[]{T,std_len});
@@ -711,17 +710,17 @@ public class FDLpfStage extends AbstractLHS {
 
             // Light (begin):
             // create object for light calculation:
-            double eb2 = 0; // create second part of Eb equation
+            double[] eb2 = new double[2]; // K parameter + second part of Eb equation
             double eb = 0; // create Eb object
             CalendarIF cal = null;
-            double[] ltemp = null;
-            double[] ltemp2 = null;
+            double[] ltemp = new double[3];
+            double[] ltemp2 = new double[2];
             cal = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
             ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal.getYearDay()); // see line 713 in ibm.py
-            double maxLight = ltemp[1]/0.217; // see line 714 in ibm.py
+            double maxLight = ltemp[0]/0.217; // see line 714 in ibm.py
             ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal.getYearDay(), maxLight); // see line 715 in ibm.py
-            eb2 = (Double) IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(new Double[]{chlorophyll,depth}); // second part of Eb equation
-            eb = ltemp2[1]*eb2; // see line 727 in ibm.py. This is Eb
+            eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll, depth); // K parameter and second part of Eb equation
+            eb = ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb
             // Light (end):
 
             // Turbulence and wind (begin)
@@ -730,7 +729,7 @@ public class FDLpfStage extends AbstractLHS {
             // Turbulence and wind (end)
 
             // Bioenergetic growth calculation:
-            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,dtday,std_len,eb,windX,windY,depth,stmsta,copepod}); //should length be at t or t-1?
+            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,dtday,std_len,eb,windX,windY,depth,stmsta,copepod,eb2[0]}); //should length be at t or t-1?
             grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
             meta = bioEN_output[1];
             sum_ing = bioEN_output[2];
@@ -985,7 +984,7 @@ public class FDLpfStage extends AbstractLHS {
         atts.setValue(FDLpfStageAttributes.PROP_attached,attached);
         atts.setValue(FDLpfStageAttributes.PROP_SL,std_len);
         atts.setValue(FDLpfStageAttributes.PROP_DW,dry_wgt);
-        atts.setValue(FDLStageAttributes.PROP_stmsta,stmsta);
+        atts.setValue(FDLpfStageAttributes.PROP_stmsta,stmsta);
         atts.setValue(FDLpfStageAttributes.PROP_grSL,grSL);
         atts.setValue(FDLpfStageAttributes.PROP_grDW,grDW);
         atts.setValue(FDLpfStageAttributes.PROP_temperature,temperature);    
@@ -1005,7 +1004,7 @@ public class FDLpfStage extends AbstractLHS {
         attached    = atts.getValue(FDLpfStageAttributes.PROP_attached,attached);
         std_len     = atts.getValue(FDLpfStageAttributes.PROP_SL,std_len);
         dry_wgt     = atts.getValue(FDLpfStageAttributes.PROP_DW,dry_wgt);
-        stmsta      = atts.getValue(FDLStageAttributes.PROP_stmsta,stmsta);
+        stmsta      = atts.getValue(FDLpfStageAttributes.PROP_stmsta,stmsta);
         grSL        = atts.getValue(FDLpfStageAttributes.PROP_grSL,grSL);
         grDW        = atts.getValue(FDLpfStageAttributes.PROP_grDW,grDW);
         temperature = atts.getValue(FDLpfStageAttributes.PROP_temperature,temperature);
