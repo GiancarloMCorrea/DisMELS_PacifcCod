@@ -279,9 +279,9 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
     /**
      * Calculates light intensity 
      */
-    public static double[] calcLight(double chla, double depth) {
+    public static double[] calcLight(double chla, double depth, double bathy) {
         double[] outp = new double[2];
-        double attCoef = 0.1 + 0.054*Math.pow(chla, 2/3) + 0.0088*chla; // Attenuation coefficient. here k0 = 0.1
+        double attCoef = 0.034 + 0.0518*Math.pow(chla, 0.428) + 0.0363 + 2.833*Math.pow(bathy, -1.079); // Eq A14 in Kearney et al 2020
         double eb_tmp = Math.exp(-1*depth*attCoef);
 
         // create output:
@@ -552,5 +552,21 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         return return_r;
 
     }
+
+    // L-W equations: TODO: this should be a file in each stage folder, but not important now
+    // parameters obtained from get_LW_parameters.R
+
+    public static double getL_fromW(double wgt, double len, double par_a, double par_b, double par_c) {
+
+        double len_out = Math.exp(par_a + par_b*Math.log(wgt) - par_c*Math.pow(Math.log(wgt),2));
+
+        if(len_out < len) len_out = len;
+
+        return len_out;
+
+    }
+
+
+
    
 }

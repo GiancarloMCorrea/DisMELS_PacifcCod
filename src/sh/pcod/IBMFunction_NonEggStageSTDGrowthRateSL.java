@@ -91,7 +91,7 @@ public class IBMFunction_NonEggStageSTDGrowthRateSL extends AbstractIBMFunction 
         Double[] vals = (Double[]) o;
         double t = vals[0];
         double L = vals[1];
-        double r = (0.076 + 0.029*t - 0.00002*t*t)/(1-0.59/Math.exp(Math.pow(L,0.0758)));
+        double r = (0.076 + 0.029*t - 0.00002*t*t)/(1-0.059/Math.exp(Math.pow(L,0.0758)));
         return (Double) r;
     }
     

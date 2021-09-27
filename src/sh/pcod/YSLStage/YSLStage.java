@@ -724,6 +724,7 @@ public class YSLStage extends AbstractLHS {
         double tauY = i3d.interpolateValue(pos2d,Sv,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4        
+        double bathy = i3d.interpolateBathymetricDepth(pos);
 
         double[] res = calcW(pos,dt);//calc w and attached indicator
         double w     = Math.signum(dt)*res[0];
@@ -768,6 +769,7 @@ public class YSLStage extends AbstractLHS {
         double assi = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double lat = pos[2];
+        double old_std_len = std_len;
 
         //get effective temperature as average temp at new and old locations
         double T1 = i3d.interpolateTemperature(pos);
@@ -786,31 +788,42 @@ public class YSLStage extends AbstractLHS {
         } else {
             //Days to YSA (when it is ready to feed) 
             durYSA  = (Double) fcnYSA.calculate(T);//only 1 alternative function currently defined        
-            if (progYSA<1.0) progYSA += dtday/durYSA;//integrated criterion for yolk-sac absorption (progYSA=1)
-            if ((ageYSA<0)&&(progYSA>=1.0)) 
+            if (progYSA<1.0) { 
+                progYSA += dtday/durYSA;//integrated criterion for yolk-sac absorption (progYSA=1)
+            }
+
+            if ((ageYSA<0)&&(progYSA>=1.0)) {
                 ageYSA = ageInStage; //Age at which feeding is possible
                 // looks like ageYSA just save the age at YSA
+            }
 
             //growth is same for feeding via ysa or active feeding 
-            if (typeGrSL==YSLStageParameters.FCN_GrSL_YSL_GrowthRate)
+            if (typeGrSL==YSLStageParameters.FCN_GrSL_YSL_GrowthRate) {
                 grSL = (Double) fcnGrSL.calculate(T);
-            else if (typeGrSL==YSLStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate)
+                std_len += grSL*dtday;
+            }
+            if (typeGrSL==YSLStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate) {
                 grSL = (Double) fcnGrSL.calculate(new Double[]{T,std_len});
+                std_len += grSL*dtday;
+            }
 
-            if (progYSA<1.0){
+            if (progYSA < 1.0){
 
-                //yolk-sac absorption is incomplete
+                // yolk-sac absorption is incomplete
                 // growth standard equation:
-                grDW = ((0.454 + 1.610*T - 0.069*T*T)*Math.exp(-6.725*dry_wgt))/100; // it is just easier to put the equation here
-                // std_len += grSL*dtday;            //mm
+                grDW = (2.990 + 0.772*T - 0.077*T*T)/100; // it is just easier to put the equation here. should be stage-specific?
                 gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
                 stmsta = 0.3*0.06*dry_wgt; // just a placeholder. start value when progYSA>=1.0
+                dry_wgt += gr_mg_fac;
 
-            } else {
+            }
 
-                if (typeGrDW==YSLStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate) {
+            if(progYSA >= 1.0) {
+
+                if(typeGrDW==YSLStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate) {
                     grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt});
                     gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
+                    dry_wgt += gr_mg_fac;
 
                     // Feeding prob (classic approach):
                     prFeed  += dtday/(durPNR-durYSA);
@@ -818,10 +831,11 @@ public class YSLStage extends AbstractLHS {
                     double b = Math.random();
                     logger.info("Check on first feeding for id "+id+": "+rndFeed+" <= "+prFeed+"?");
                     if (rndFeed<=prFeed) hasFed = true;//feeding occurs, will transition to FDL stage
-                }
-                if(typeGrDW==YSLStageParameters.FCN_GrDW_YSL_GrowthRate) {
+                }  
+                if (typeGrDW==YSLStageParameters.FCN_GrDW_YSL_GrowthRate) {
                     grDW = (Double) fcnGrDW.calculate(T);
                     gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
+                    dry_wgt += gr_mg_fac;
 
                     // Feeding prob (classic approach):
                     prFeed  += dtday/(durPNR-durYSA);
@@ -829,42 +843,8 @@ public class YSLStage extends AbstractLHS {
                     double b = Math.random();
                     logger.info("Check on first feeding for id "+id+": "+rndFeed+" <= "+prFeed+"?");
                     if (rndFeed<=prFeed) hasFed = true;//feeding occurs, will transition to FDL stage
-                }
-
-                //yolk sac absorption is complete
-                //calculate whether or not first feeding occurs                
-                // if (useFirstFeedingSH){
-                //     //SH approach
-                //     //This approach assumes prFeed (the Lifetime Distribution Function) 
-                //     //increases linearly from 0 to 1 as time/age increases from YSA to PNR,
-                //     //but this occurs necessarily only in the case of constant temperature
-                //     //(in which case durPNR-durYSA is a constant).
-                //     prFeed  += dtday/(durPNR-durYSA);
-                //     prNotFed = 1.0-prFeed;
-                //     double b = Math.random();
-                //     logger.info("Check on first feeding for id "+id+": "+rndFeed+" <= "+prFeed+"?");
-                //     if (rndFeed<=prFeed) hasFed = true;//feeding occurs, will transition to FDL stage
-                //     //growth occurs regardless of feeding (seems unrealistic)
-                //     //std_len += grSL*dtday;
-                //     //dry_wgt *= Math.exp(grDW * dtday);
-                // } else {
-                //     //WTS approach based on survival/failure analysis
-                //     //hazard function for first feeding is based on prey encounter rate (search volume x abundance density)
-                //     double svr  = Math.PI*(std_len*std_len*(1.0e-6))*Math.abs(w);//search volume rate (m^3/s)
-                //     double fHF  = svr*(copepods/indivCopWgt);//instantaneous feeding hazard rate (1/s)
-                //     fCumHazFcn += fHF*dt;                   //cumulative hazard function for first feeding (note: dt, not dtday)
-                //     prNotFed = Math.exp(-fCumHazFcn);
-                //     if (rndFeed>prNotFed) {
-                //         //feeding occurs
-                //         hasFed = true;//will transition to FDL stage
-                //         //std_len += grSL*dtday;
-                //         //dry_wgt *= Math.exp(grDW * dtday);
-                //     } else {
-                //         //growth does not occur if ysa is completed but feeding has not begun
-                //     }
-                // }
-
-                if(typeGrDW==YSLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
+                } 
+                if (typeGrDW==YSLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
 
                     // Light (begin):
                     // create object for light calculation:
@@ -877,9 +857,9 @@ public class YSLStage extends AbstractLHS {
                     ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal.getYearDay()); // see line 713 in ibm.py
                     double maxLight = ltemp[0]/0.217; // radfl0 from  W/m2 to umol/m2/s-1 see line 714 in ibm.py
                     ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal.getYearDay(), maxLight); // see line 715 in ibm.py
-                    eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll,depth); // second part of Eb equation
+                    eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll,depth,bathy); // second part of Eb equation
                     // TODO: figure out if chl-a should be at the surface
-                    eb = ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb
+                    eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
                     // Light (end):
 
                     // Turbulence and wind (begin)
@@ -888,7 +868,7 @@ public class YSLStage extends AbstractLHS {
                     // Turbulence and wind (end)
 
                     // Bioenergetic growth calculation:
-                    bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,dtday,std_len,eb,windX,windY,depth,stmsta,copepods,eb2[0]}); //should length be at t or t-1?
+                    bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,copepods,eb2[0]}); //should length be at t or t-1?
                     grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
                     meta = bioEN_output[1];
                     sum_ing = bioEN_output[2];
@@ -900,11 +880,17 @@ public class YSLStage extends AbstractLHS {
                     stmsta = Math.max(0, Math.min(0.06*dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
                     gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
 
-                    if(sum_ing > 0.00005) hasFed = true; // TODO: check this condition. should I use sum_ing?
+                    // new weight in mg:
+                    dry_wgt += gr_mg_fac;
 
                     // Update (again) stmsta for next time step:
                     stmsta = Math.max(0, stmsta - ((dry_wgt - old_dry_wgt) + meta)/assi);
-    
+
+                    // Calculate std_len from from weight information:
+                    std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len, 2.317, 0.044, 0.0077); // get parameters from R script
+
+                    if(sum_ing > 0.00001) hasFed = true; // TODO: check this condition. should I use sum_ing?
+
                 }
 
             }
@@ -912,8 +898,8 @@ public class YSLStage extends AbstractLHS {
         }
           
         // Here growth:
-        std_len += grSL*dtday;
-        dry_wgt += gr_mg_fac;
+        //std_len += grSL*dtday;
+        //dry_wgt += gr_mg_fac;
 
         // Print light in grSL field, just to check the calculation (temporally):
         grSL = sum_ing;
