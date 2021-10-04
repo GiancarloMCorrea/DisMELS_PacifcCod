@@ -811,7 +811,7 @@ public class YSLStage extends AbstractLHS {
 
                 // yolk-sac absorption is incomplete
                 // growth standard equation:
-                grDW = (2.990 + 0.772*T - 0.077*T*T)/100; // it is just easier to put the equation here. should be stage-specific?
+                grDW = ((0.454 + 1.610*T - 0.069*T*T)*Math.exp(-6.725*dry_wgt))/100; // it is just easier to put the equation here. should be stage-specific?
                 gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
                 stmsta = 0.3*0.06*dry_wgt; // just a placeholder. start value when progYSA>=1.0
                 dry_wgt += gr_mg_fac;
@@ -887,7 +887,7 @@ public class YSLStage extends AbstractLHS {
                     stmsta = Math.max(0, stmsta - ((dry_wgt - old_dry_wgt) + meta)/assi);
 
                     // Calculate std_len from from weight information:
-                    std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len, 2.317, 0.044, 0.0077); // get parameters from R script
+                    std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len, 2.813, -0.1692, 0.0584); // get parameters from R script
 
                     if(sum_ing > 0.00001) hasFed = true; // TODO: check this condition. should I use sum_ing?
 

@@ -756,7 +756,7 @@ public class FDLpfStage extends AbstractLHS {
             stmsta = Math.max(0, stmsta - ((dry_wgt - old_dry_wgt) + meta)/assi);
 
             // Calculate std_len from from weight information:
-            std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len, 2.9128, 0.5257, 0.1134); // get parameters from R script
+            std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len, 3.98, 0.49, -0.0345); // get parameters from R script
 
         }
 

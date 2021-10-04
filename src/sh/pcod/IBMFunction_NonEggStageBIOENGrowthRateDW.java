@@ -145,7 +145,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double ke_predator = 1;
 
         int n_enc = 10;
-        double eps = (5.82*1e-9*Math.pow(Math.sqrt(Math.pow(windX,2) + Math.pow(windY,2)), 3))/(depth+0.1);
+        double eps = (5.82*1e-9*Math.pow(Math.sqrt(Math.pow(windX,2) + Math.pow(windY,2)), 3))/(depth+0.1); // Equation 1 in MacKenzie and Leggett 1993
         double gape = Math.exp(-3.720 + 1.818*Math.log(std_len) - 0.1219*Math.pow(Math.log(std_len), 2));
 
         Double[] return_vec = new Double[4]; // value to Return should be specified here
@@ -177,7 +177,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             double c = 0.5*gape;
             double rs = c + 0.1*std_len;
             double d_crit = 0.264/prey_len[i];
-            double w = speed_prey*prey_len[i];
+            double w = speed_prey*prey_len[i]; // prey escape velocity
             double capt_pca = 0;
             double capt_psa = 0;
             double travel = 0.43;
@@ -236,6 +236,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
                         }
                     }
 
+                    // Equation 11 in Fiksen and MacKenzie 2002
                     double capture = (w/va) * (Math.sin(teta)*(rs+c)+(gape/2)*Math.cos(teta));
 
                     if(capture < (gape*0.5)) {
@@ -253,11 +254,12 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             psa[i] = Math.min(1, capt_psa/n_enc);
             pca[i] = Math.min(1, capt_pca/n_enc);
 
-            double omega = 1.9*Math.pow((eps*visual*0.001), 0.667); //mm2m = 0.001 
+            double omega = Math.sqrt(3.615*Math.pow((eps*visual*0.001), 0.667)); //mm2m = 0.001. Equation 11 in MacKenzie Miller 1994. Is it wrong in TROND?
             omega = omega * 1000; // m2mm = 1000. From m/s to mm/s
 
+            // Equation 3 in Walton 1992. Parametrized differently:
             hand[i] = 0.264*Math.pow(10, (7.0151*(prey_len[i]/std_len)));
-            // See Fiksen and MacKenzie 2002 Equation 1:
+            // See Fiksen and MacKenzie 2002 Equation 1: (the term Math.pow(prey_len[i], 2) is wrong?)
             enc[i] = ((0.667*Math.PI*Math.pow(visual,3)*travel + Math.PI*Math.pow(visual,2)*Math.sqrt(Math.pow(prey_len[i], 2) + 2*Math.pow(omega,2))*travel*2)*(1*prey_abun[i])*1e-6); // tau = 2. MultiplyPrey = 1. ltr2mm3 = 1E-6
             ing[i] = dtday*enc[i]*pca[i]*prey_wgt[i]*0.001/(1 + hand[i]); // ug2mg = 0.001. dt*deltaH (in TROND) = dt (in DisMELS), that is why I deleted deltaH. I used dtday
 
@@ -473,6 +475,15 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     public static double[] getr(double r, double c, double c0, double ap, double vc, double ke, double eb, double ier) {
 
+          //  r       : start value of r calculated by EASYR
+          //  c       : beam attenuation koefficient (m-1)
+          //  c0      : prey inherent contrast
+          //  ap      : prey area (m^2)
+          //  vc      : parameter characterising visual capacity (d.l.)
+          //            this parameter is denoted E' in Aksnes & Utne (1997)
+          //  ke      : saturation parameter (uE m-2 s-1)
+          //  eb      : background irradiance at depth DEPTH
+
         // output object
         double[] return_r = new double[2]; // output object
 
@@ -486,7 +497,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double tol = r;
 
         // Run 'deriv' subroutine: (begin)
-        double fr2 = Math.log(Math.abs(c0)*ap*vc);
+        double fr2 = Math.log(Math.abs(c0)*ap*vc); // Equation 10 in Aksnes and Giske 1993
         double fr1 = Math.log(((ke+eb)/eb)*r*r*Math.exp(c*r));
         double f1 = fr1 - fr2;
         double fder = c + 2/r;
