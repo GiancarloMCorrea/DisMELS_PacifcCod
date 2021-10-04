@@ -724,7 +724,7 @@ public class YSLStage extends AbstractLHS {
         double tauY = i3d.interpolateValue(pos2d,Sv,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4        
-        double bathy = i3d.interpolateBathymetricDepth(pos);
+        // double bathy = i3d.interpolateBathymetricDepth(pos);
 
         double[] res = calcW(pos,dt);//calc w and attached indicator
         double w     = Math.signum(dt)*res[0];
@@ -768,7 +768,7 @@ public class YSLStage extends AbstractLHS {
         double sum_ing = 0;
         double assi = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
-        double lat = pos[2];
+        // double lat = pos[2]; // lat value not in this way
         double old_std_len = std_len;
 
         //get effective temperature as average temp at new and old locations
@@ -811,7 +811,7 @@ public class YSLStage extends AbstractLHS {
 
                 // yolk-sac absorption is incomplete
                 // growth standard equation:
-                grDW = ((0.454 + 1.610*T - 0.069*T*T)*Math.exp(-6.725*dry_wgt))/100; // it is just easier to put the equation here. should be stage-specific?
+                grDW = ((0.454 + 1.610*T - 0.069*T*T)*Math.exp(-6.725*dry_wgt))/100; // TODO: it is just easier to put the equation here. should be stage-specific?
                 gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
                 stmsta = 0.3*0.06*dry_wgt; // just a placeholder. start value when progYSA>=1.0
                 dry_wgt += gr_mg_fac;
@@ -857,7 +857,7 @@ public class YSLStage extends AbstractLHS {
                     ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal.getYearDay()); // see line 713 in ibm.py
                     double maxLight = ltemp[0]/0.217; // radfl0 from  W/m2 to umol/m2/s-1 see line 714 in ibm.py
                     ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal.getYearDay(), maxLight); // see line 715 in ibm.py
-                    eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll,depth,bathy); // second part of Eb equation
+                    eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll,depth,bathym); // second part of Eb equation
                     // TODO: figure out if chl-a should be at the surface
                     eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
                     // Light (end):
