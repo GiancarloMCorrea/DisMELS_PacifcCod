@@ -641,7 +641,7 @@ public class FDLpfStage extends AbstractLHS {
        
              //SH-Prey Stuff  
         copepod    = i3d.interpolateValue(pos,Cop,Interpolator3D.INTERP_VAL);
-        euphausiid = i3d.interpolateValue(pos,Eup,Interpolator3D.INTERP_VAL);
+        //euphausiid = i3d.interpolateValue(pos,Eup,Interpolator3D.INTERP_VAL);
         neocalanus = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
         // ADD HERE OTHER ZOOPLANKTON PREY ITEMS
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
@@ -653,6 +653,8 @@ public class FDLpfStage extends AbstractLHS {
         //double bathy = i3d.interpolateBathymetricDepth(pos);
 
         double[] uvw = calcUVW(pos,dt);//this also sets "attached" and may change pos[2] to 0
+        //euphausiid = uvw[2]; // print out this value
+        euphausiid = dt; // print out this value
         if (attached){
             lp.setIJK(pos[0], pos[1], pos[2]);
         } else {
