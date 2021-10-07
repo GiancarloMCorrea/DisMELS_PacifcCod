@@ -722,13 +722,13 @@ public class FDLpfStage extends AbstractLHS {
             // create object for light calculation:
             double[] eb2 = new double[2]; // K parameter + second part of Eb equation
             double eb = 0; // create Eb object
-            CalendarIF cal = null;
+            CalendarIF cal2 = null;
             double[] ltemp = new double[3];
             double[] ltemp2 = new double[2];
-            cal = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
-            ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal.getYearDay()); // see line 713 in ibm.py
+            cal2 = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
+            ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal2.getYearDay()); // see line 713 in ibm.py
             double maxLight = ltemp[0]/0.217; // see line 714 in ibm.py
-            ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal.getYearDay(), maxLight); // see line 715 in ibm.py
+            ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal2.getYearDay(), maxLight); // see line 715 in ibm.py
             eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll, depth, bathym); // K parameter and second part of Eb equation
             eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
             // Light (end):
@@ -768,7 +768,7 @@ public class FDLpfStage extends AbstractLHS {
         //dry_wgt += gr_mg_fac;
 
         // Print light in grSL field, just to check the calculation (temporally):
-        grSL = sum_ing;
+        grSL = grSL;
         grDW = gr_mg_fac;
 
         // END OF BIOEN CHANGES ------------------------------------
@@ -846,6 +846,9 @@ public class FDLpfStage extends AbstractLHS {
             double td = i3d.interpolateBathymetricDepth(lp.getIJK());
             double[] res = (double[]) fcnVM.calculate(new double[]{dt,depth,td,w,90.833-ss[4]});
             w = res[0];
+            if (Double.isFinite(td)) {
+                logger.info("Here is the error, td "+td+", ss4 "+ss[4]+", w "+w);
+            }
             attached = res[1]<0;
             if (attached) pos[2] = 0;//set individual on bottom
         }
@@ -859,6 +862,10 @@ public class FDLpfStage extends AbstractLHS {
                 uv[1] += r*rng.computeNormalVariate(); //stochastic swimming rate
                 if (debug) System.out.print("uv: "+r+"; "+uv[0]+", "+uv[1]+"\n");
             }
+        }
+
+        if (!Double.isFinite(w)) {
+            logger.info("Here is the error, w "+w+", dt "+dt+", depth "+depth);
         }
         
         //return the result
