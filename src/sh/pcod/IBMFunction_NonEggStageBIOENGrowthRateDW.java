@@ -168,9 +168,20 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             double visual = Math.sqrt(em*contrast*prey_area[i]*(eb/(ke_larvae+eb)));
             double image = prey_area[i];
 
-            double[] getr_out = null;
-            getr_out = getr(visual, beamAttCoeff/1000, contrast, image, em, ke_larvae, eb, ier); // m2mm = 1000
-            visual = getr_out[1]; // 0 = new ier, 1 = new 'visual' value after getr
+            if(eb < 1E-100) { // Here is the bug I got. When Eb is extremely small, no run the visual estimation algorithm, then visual = 0
+                visual = 0;
+            } else {
+                double[] getr_out = null;
+                getr_out = getr(visual, beamAttCoeff/1000, contrast, image, em, ke_larvae, eb, ier); // m2mm = 1000
+                visual = getr_out[1]; // 0 = new ier, 1 = new 'visual' value after getr
+            }
+
+            //if (!Double.isFinite(getr_out[1])){
+              //  String msg = "HEREEEE is the error, visual "+getr_out[1]+", and getr_out0 "+getr_out[0]+", p1 "+visual+", p2 "+beamAttCoeff/1000+", p3 "+contrast+", p4 "+image+", p5 "+em+", p6 "+ke_larvae+", p7 "+eb+", p8 "+ier;
+              //  throw new java.lang.ArithmeticException(msg);
+            //}
+
+
             pca[i] = Math.max(0, Math.min(1, -16.7*(prey_len[i]/std_len) + (3/2)));
 
             // Capture and approach probabilities:

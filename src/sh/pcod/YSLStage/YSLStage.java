@@ -852,11 +852,11 @@ public class YSLStage extends AbstractLHS {
                     double[] eb2 = new double[2]; // K parameter and second part of Eb equation
                     double[] ltemp = new double[3];
                     double[] ltemp2 = new double[2];
-                    CalendarIF cal = null; // TODO: julian day looks to be calculated for the previous time. is this correct?
-                    cal = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
-                    ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal.getYearDay()); // see line 713 in ibm.py
+                    CalendarIF cal2 = null; // TODO: julian day looks to be calculated for the previous time. is this correct?
+                    cal2 = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
+                    ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal2.getYearDay()); // see line 713 in ibm.py
                     double maxLight = ltemp[0]/0.217; // radfl0 from  W/m2 to umol/m2/s-1 see line 714 in ibm.py
-                    ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal.getYearDay(), maxLight); // see line 715 in ibm.py
+                    ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal2.getYearDay(), maxLight); // see line 715 in ibm.py
                     eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll,depth,bathym); // second part of Eb equation
                     // TODO: figure out if chl-a should be at the surface
                     eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14

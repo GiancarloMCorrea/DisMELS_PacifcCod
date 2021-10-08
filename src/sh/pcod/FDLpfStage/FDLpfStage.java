@@ -642,7 +642,7 @@ public class FDLpfStage extends AbstractLHS {
              //SH-Prey Stuff  
         copepod    = i3d.interpolateValue(pos,Cop,Interpolator3D.INTERP_VAL);
         //euphausiid = i3d.interpolateValue(pos,Eup,Interpolator3D.INTERP_VAL);
-        neocalanus = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
+        //neocalanus = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
         // ADD HERE OTHER ZOOPLANKTON PREY ITEMS
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
@@ -653,8 +653,6 @@ public class FDLpfStage extends AbstractLHS {
         //double bathy = i3d.interpolateBathymetricDepth(pos);
 
         double[] uvw = calcUVW(pos,dt);//this also sets "attached" and may change pos[2] to 0
-        //euphausiid = uvw[2]; // print out this value
-        euphausiid = dt; // print out this value
         if (attached){
             lp.setIJK(pos[0], pos[1], pos[2]);
         } else {
@@ -760,6 +758,10 @@ public class FDLpfStage extends AbstractLHS {
             // Calculate std_len from from weight information:
             std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len, 3.98, 0.49, -0.0345); // get parameters from R script
 
+            //if (!Double.isFinite(std_len)) {
+              //  logger.info("HEREEEE is the error, eb "+eb+", windX "+windX+", windY "+windY+", copepod "+copepod+", eb0 "+eb2[0]+", grDW "+grDW+", meta "+meta+", old_std_len"+old_std_len+", T "+T);
+            //}
+
         }
 
         // Length and weight at t:
@@ -843,12 +845,9 @@ public class FDLpfStage extends AbstractLHS {
             *              w        - individual active vertical movement velocity
             *              attached - flag indicating whether individual is attached to bottom(< 0) or not (>0)
             */
-            double td = i3d.interpolateBathymetricDepth(lp.getIJK());
+            double td = i3d.interpolateBathymetricDepth(lp.getIJK());            
             double[] res = (double[]) fcnVM.calculate(new double[]{dt,depth,td,w,90.833-ss[4]});
-            w = res[0];
-            if (Double.isFinite(td)) {
-                logger.info("Here is the error, td "+td+", ss4 "+ss[4]+", w "+w);
-            }
+            w = res[0];              
             attached = res[1]<0;
             if (attached) pos[2] = 0;//set individual on bottom
         }
@@ -862,10 +861,6 @@ public class FDLpfStage extends AbstractLHS {
                 uv[1] += r*rng.computeNormalVariate(); //stochastic swimming rate
                 if (debug) System.out.print("uv: "+r+"; "+uv[0]+", "+uv[1]+"\n");
             }
-        }
-
-        if (!Double.isFinite(w)) {
-            logger.info("Here is the error, w "+w+", dt "+dt+", depth "+depth);
         }
         
         //return the result

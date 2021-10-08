@@ -735,13 +735,13 @@ public class FDLStage extends AbstractLHS {
             // create object for light calculation:
             double[] eb2 = new double[2]; // K parameter and second part of Eb equation
             double eb = 0; // create Eb object
-            CalendarIF cal = null;
+            CalendarIF cal2 = null;
             double[] ltemp = new double[3];
             double[] ltemp2 = new double[2];
-            cal = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
-            ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal.getYearDay()); // see line 713 in ibm.py
+            cal2 = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
+            ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal2.getYearDay()); // see line 713 in ibm.py
             double maxLight = ltemp[0]/0.217; // see line 714 in ibm.py
-            ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal.getYearDay(), maxLight); // see line 715 in ibm.py
+            ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal2.getYearDay(), maxLight); // see line 715 in ibm.py
             eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll, depth, bathym); // second part of Eb equation
             eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
             // Light (end):
