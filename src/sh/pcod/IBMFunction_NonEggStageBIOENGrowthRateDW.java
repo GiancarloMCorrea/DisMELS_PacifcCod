@@ -148,7 +148,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double eps = (5.82*1e-9*Math.pow(Math.sqrt(Math.pow(windX,2) + Math.pow(windY,2)), 3))/(depth+0.1); // Equation 1 in MacKenzie and Leggett 1993
         double gape = Math.exp(-3.720 + 1.818*Math.log(std_len) - 0.1219*Math.pow(Math.log(std_len), 2));
 
-        Double[] return_vec = new Double[4]; // value to Return should be specified here
+        Double[] return_vec = new Double[5]; // value to Return should be specified here
         // This is an 2D array of length = 4
 
         // Zooplankton per len bin:
@@ -171,7 +171,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             if(eb < 1E-100) { // Here is the bug I got. When Eb is extremely small, no run the visual estimation algorithm, then visual = 0
                 visual = 0;
             } else {
-                double[] getr_out = null;
+                double[] getr_out = new double[2];
                 getr_out = getr(visual, beamAttCoeff/1000, contrast, image, em, ke_larvae, eb, ier); // m2mm = 1000
                 visual = getr_out[1]; // 0 = new ier, 1 = new 'visual' value after getr
             }
@@ -285,6 +285,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         return_vec[1] = meta; // metabolism
         return_vec[2] = sum_ing;
         return_vec[3] = assi;
+        return_vec[4] = stomachFullness;
         return return_vec;
 
     }
@@ -575,12 +576,12 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     }
 
-    // L-W equations: TODO: this should be a file in each stage folder, but not important now
+    // L-W equations: 
     // parameters obtained from get_LW_parameters.R
 
-    public static double getL_fromW(double wgt, double len, double par_a, double par_b, double par_c) {
+    public static double getL_fromW(double wgt, double len) {
 
-        double len_out = Math.exp(par_a + par_b*Math.log(wgt) - par_c*Math.pow(Math.log(wgt),2));
+        double len_out = Math.pow(wgt/1.427E-07, 1/3.731);
 
         if(len_out < len) len_out = len;
 
@@ -588,7 +589,93 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     }
 
+    // L-W equations: 
+    // parameters obtained from get_LW_parameters.R
 
+    public static double getW_fromL(double len) {
+
+        double wgt_out = 1.427E-07*Math.pow(len, 3.731);
+
+        return wgt_out;
+
+    }
+
+    // Mortality function:
+
+    public static double[] TotalMortality(double larval_m, double eb, double attCoeff, double larva_wgt, double suming, double stomachFullness) {
+
+        double[] return_mort = new double[2]; // output object
+
+        double larvalShape = 0.2; // Larval width:length ratio
+        double contrast = 0.3;
+        double em = 5.0E4;
+        double visFieldShape = 0.5;
+        double fishSwimVel = 0.10;      // Fish cruising velocity (m/s)
+        double aPred = 1.78e-5;
+        double bPred = -1.3;    // 0.78d-5=0.1/3600., -1.3 Parameters for purely size-dependent mortality Fiksen et al. 2002
+        double starvationMortality = 1.0e-6;
+        double setMort = 1;
+        double ke_predator = 1;
+        double fishDens = 0.0001; // fish density (fish/m^3)
+        double deadThreshold = 0.8; // 80%
+        int m2mm = 1000;
+        double beamAttCoeff = attCoeff*3;
+
+        // Values of fish and larval length are all in meters in this subroutine,
+        // which differs from the rest of the routines that are all in mm.
+        double larvalWidth   = larvalShape*larval_m;
+        double image = larvalWidth*larval_m*0.75;
+
+        double ier = 0;
+        double visual = 0.0;
+
+        // All input to getr is either in m (or per m), or in mm (or per mm). Here we use meter (m):
+        if(eb < 1E-100) { // Here is the bug I got. When Eb is extremely small, no run the visual estimation algorithm, then visual = 0
+            visual = 0;
+        } else {
+            double[] getr_out = new double[2];
+            getr_out = getr(visual, beamAttCoeff/m2mm, contrast, image, em, ke_predator, eb, ier); // m2mm = 1000
+            visual = getr_out[1]; // 0 = new ier, 1 = new 'visual' value after getr
+        }
+
+        // Calculate lethal encounter rate with fish setMort is either 0 (off) or 1 (on)
+        double fishMortality = setMort*(visFieldShape*Math.PI*Math.pow(visual,2)*fishSwimVel*fishDens);
+        double invertebrateMortality = setMort*OtherPred(larval_m, aPred, bPred, m2mm);
+        double starved = AliveOrDead(larva_wgt, larval_m, suming, stomachFullness, deadThreshold, m2mm);
+        double mortality = (invertebrateMortality + fishMortality + starved*starvationMortality);
+
+        return_mort[0] = mortality;
+        return_mort[1] = starved;
+
+        return return_mort;
+
+    }
+
+
+    public static double OtherPred(double larval_m, double aPred, double bPred, double m2mm){
+
+        double otherPred = aPred*Math.pow(larval_m*m2mm, bPred);
+        return otherPred;
+
+    }
+
+    public static double AliveOrDead(double larva_wgt, double larval_m, double suming, double stomachFullness, double deadThreshold, double m2mm){
+
+        double refWeight = getW_fromL(larval_m*m2mm); // get ref wgt in mg
+        double aliveOrDead = 0;
+
+        if ((refWeight > larva_wgt)||((suming < 0.00000001)&&(stomachFullness < 0.0000001))) {
+            aliveOrDead = 1;
+        }
+
+        if (refWeight*deadThreshold > larva_wgt) {
+            // Give a very high probability of death when belowe 80% (deadThreshold)
+            aliveOrDead = 10000;
+        }
+
+        return aliveOrDead;
+
+    }
 
    
 }

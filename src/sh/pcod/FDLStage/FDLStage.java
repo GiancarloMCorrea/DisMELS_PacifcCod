@@ -100,6 +100,8 @@ public class FDLStage extends AbstractLHS {
     protected double dry_wgt = 0;
     /** stomach state (units) */
     protected double stmsta = 0;
+    /** stomach state (units) */
+    protected double psurvival = 1;
     /** growth rate for standard length (mm/d) */
     protected double grSL = 0;
     /** growth rate for dry weight (1/d) */
@@ -666,7 +668,6 @@ public class FDLStage extends AbstractLHS {
         //double bathy = i3d.interpolateBathymetricDepth(pos);
 
         double[] uvw = calcUVW(pos,dt);//this also sets "attached" and may change pos[2] to 0
-        euphausiid = uvw[2]; // print out this value
         //PRINT UVW
         if (attached){
             lp.setIJK(pos[0], pos[1], pos[2]);
@@ -704,9 +705,23 @@ public class FDLStage extends AbstractLHS {
         double meta = 0;
         double sum_ing = 0;
         double assi = 0;
+        double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
-        // double lat = pos[2]; // lat value not in this way
         double old_std_len = std_len;
+        // Light (begin):
+        // create object for light calculation:
+        double[] eb2 = new double[2]; // K parameter and second part of Eb equation
+        double eb = 0; // create Eb object
+        CalendarIF cal2 = null;
+        double[] ltemp = new double[3];
+        double[] ltemp2 = new double[2];
+        cal2 = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
+        ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal2.getYearDay()); // see line 713 in ibm.py
+        double maxLight = ltemp[0]/0.217; // see line 714 in ibm.py
+        ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal2.getYearDay(), maxLight); // see line 715 in ibm.py
+        eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll, depth, bathym); // second part of Eb equation
+        eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
+        // Light (end):
 
         // Length:
         if (typeGrSL==FDLStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate) {
@@ -731,43 +746,25 @@ public class FDLStage extends AbstractLHS {
         }
         if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate){
 
-            // Light (begin):
-            // create object for light calculation:
-            double[] eb2 = new double[2]; // K parameter and second part of Eb equation
-            double eb = 0; // create Eb object
-            CalendarIF cal2 = null;
-            double[] ltemp = new double[3];
-            double[] ltemp2 = new double[2];
-            cal2 = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
-            ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal2.getYearDay()); // see line 713 in ibm.py
-            double maxLight = ltemp[0]/0.217; // see line 714 in ibm.py
-            ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal2.getYearDay(), maxLight); // see line 715 in ibm.py
-            eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll, depth, bathym); // second part of Eb equation
-            eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
-            // Light (end):
-
             // Turbulence and wind (begin)
             double windX = Math.abs(Math.sqrt(Math.abs(tauX)/(1.3*1.2E-3))); // Wind velocity In m/s
             double windY = Math.abs(Math.sqrt(Math.abs(tauY)/(1.3*1.2E-3))); // Wind velocity In m/s
             // Turbulence and wind (end)
 
             // Bioenergetic growth calculation:
-            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,copepod,eb2[0]}); //should length be at t or t-1?
+            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,copepod,eb2[0]}); //should length be at t or t-1?
             grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
             meta = bioEN_output[1];
             sum_ing = bioEN_output[2];
             assi = bioEN_output[3];
+            stomachFullness = bioEN_output[4];
             double costRateOfMetabolism = 0.5; // check this number
             double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
 
             // Update values:
-            stmsta = Math.max(0, Math.min(0.06*dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
+            stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
             gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
             
-            // TODO: decide how many days a larva can survive without food
-
-            // TODO: try paper formulation of what growth equations to use.
-
             // new weight in mg:
             dry_wgt += gr_mg_fac;
 
@@ -775,22 +772,31 @@ public class FDLStage extends AbstractLHS {
             stmsta = Math.max(0, stmsta - ((dry_wgt - old_dry_wgt) + meta)/assi);
 
             // Calculate std_len from from weight information:
-            std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len, 2.928, -0.09, 0.047); // get parameters from R script
+            std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len); // get parameters from R script
+            grSL = std_len - old_std_len;
 
         }
 
-        // Length and weight at t:
-        //std_len += grSL*dtday; //mm dSL/dt = grSL
-        // dry_wgt *= Math.exp(grDW*dtday); // mg dDW/dt = grDW*DW. The right equation is: Math.exp(grDW*dtday)
-        //dry_wgt += gr_mg_fac;
-
-        // Print light in grSL field, just to check the calculation (temporally):
-        grSL = sum_ing;
-        grDW = gr_mg_fac;
-
         // END OF BIOEN CHANGES ------------------------------------
 
-        updateNum(dt);
+        // updateNum(dt);
+
+        // New Mortality:
+        // TODO: adapt this to a new mortality function:
+        if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
+
+            double[] mort_out = new double[2]; // for mortality output
+            mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+            // mort_out[0] = mortality. mort_out[1] = starved
+            if(mort_out[1] > 1000) {
+                psurvival = 0;
+            } else {
+                psurvival = psurvival*Math.exp(-dt*mort_out[0]);
+            }
+        number = number*psurvival;
+
+        }
+
         updateAge(dt);
         updatePosition(pos);
         interpolateEnvVars(pos);
@@ -1021,6 +1027,7 @@ public class FDLStage extends AbstractLHS {
         atts.setValue(FDLStageAttributes.PROP_SL,std_len);
         atts.setValue(FDLStageAttributes.PROP_DW,dry_wgt);
         atts.setValue(FDLStageAttributes.PROP_stmsta,stmsta);
+        atts.setValue(FDLStageAttributes.PROP_psurvival,psurvival);
         atts.setValue(FDLStageAttributes.PROP_grSL,grSL);
         atts.setValue(FDLStageAttributes.PROP_grDW,grDW);
         atts.setValue(FDLStageAttributes.PROP_temperature,temperature);    
@@ -1041,6 +1048,7 @@ public class FDLStage extends AbstractLHS {
         std_len      = atts.getValue(FDLStageAttributes.PROP_SL,std_len);
         dry_wgt      = atts.getValue(FDLStageAttributes.PROP_DW,dry_wgt);
         stmsta      = atts.getValue(FDLStageAttributes.PROP_stmsta,stmsta);
+        psurvival      = atts.getValue(FDLStageAttributes.PROP_psurvival,psurvival);
         grSL         = atts.getValue(FDLStageAttributes.PROP_grSL,grSL);
         grDW         = atts.getValue(FDLStageAttributes.PROP_grDW,grDW);
         temperature = atts.getValue(FDLStageAttributes.PROP_temperature,temperature);

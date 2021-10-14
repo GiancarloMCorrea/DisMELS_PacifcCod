@@ -27,11 +27,12 @@ import wts.models.DisMELS.framework.IBMAttributes.IBMAttributeDouble;
 public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
     
     /** Number of new attributes defined by this class */
-    public static final int numNewAttributes = 12;
+    public static final int numNewAttributes = 13;
     public static final String PROP_attached    = "attached";
     public static final String PROP_SL          = "standard length (mm)";
     public static final String PROP_DW          = "dry weight (mg)";
     public static final String PROP_stmsta      = "stomach state (units)";
+    public static final String PROP_psurvival   = "survival probability";
     public static final String PROP_grSL        = "growth rate for SL (mm/d)";
     public static final String PROP_grDW        = "growth rate for DW (1/d)";
     public static final String PROP_temperature = "temperature deg C";
@@ -85,6 +86,7 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
             key = PROP_SL;         keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"SL"));
             key = PROP_DW;         keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"DW"));
             key = PROP_stmsta;     keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"stmsta"));
+            key = PROP_psurvival;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"psurvival"));
             key = PROP_grSL;       keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"grSL"));
             key = PROP_grDW;       keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"grDW"));
             key = PROP_temperature;keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"temp"));
@@ -105,6 +107,7 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
         tmpMapValues.put(PROP_SL,         new Double(0));
         tmpMapValues.put(PROP_DW,         new Double(0));
         tmpMapValues.put(PROP_stmsta,     new Double(0));
+        tmpMapValues.put(PROP_psurvival,  new Double(1));
         tmpMapValues.put(PROP_grSL,       new Double(0));
         tmpMapValues.put(PROP_grDW,       new Double(0));
         tmpMapValues.put(PROP_temperature,new Double(-1));

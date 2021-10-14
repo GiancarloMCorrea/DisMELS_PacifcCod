@@ -618,9 +618,6 @@ public class EggStage extends AbstractLHS {
             grDW = (Double)fcnGrDW.calculate((new Double[]{T,dry_wgt})); 
         dry_wgt *= Math.exp(grDW * dtday);//mg
         
-        // stomach state:
-        // stmsta = 0.3*0.06*dry_wgt; // stomach_threshold*gut_size*dry_wgt
-
         //stage duration (only one possible function currently)
         double stgD = (Double) fcnStageDur.calculate(T);
         stgProg += dtday/stgD;
@@ -786,7 +783,6 @@ public class EggStage extends AbstractLHS {
         atts.setValue(EggStageAttributes.PROP_density,density);
         atts.setValue(EggStageAttributes.PROP_SL,std_len);
         atts.setValue(EggStageAttributes.PROP_DW,dry_wgt);
-        //atts.setValue(EggStageAttributes.PROP_stmsta,stmsta);
         atts.setValue(EggStageAttributes.PROP_grSL,grSL);
         atts.setValue(EggStageAttributes.PROP_grDW,grDW);
         atts.setValue(EggStageAttributes.PROP_rho,rho);
@@ -806,7 +802,6 @@ public class EggStage extends AbstractLHS {
         density     = atts.getValue(EggStageAttributes.PROP_density,density);
         std_len     = atts.getValue(EggStageAttributes.PROP_SL,std_len);
         dry_wgt     = atts.getValue(EggStageAttributes.PROP_DW,dry_wgt);
-        //stmsta     = atts.getValue(EggStageAttributes.PROP_stmsta,stmsta);
         grSL        = atts.getValue(EggStageAttributes.PROP_grSL,grSL);
         grDW        = atts.getValue(EggStageAttributes.PROP_grDW,grDW);
         rho         = atts.getValue(EggStageAttributes.PROP_rho,rho);

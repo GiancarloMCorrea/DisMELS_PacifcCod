@@ -113,7 +113,8 @@ public class YSLStage extends AbstractLHS {
     protected double dry_wgt = 0;
     /** stomach state (units) */
     protected double stmsta = 0; // Here initial value of stomach state. 
-    // TODO: assuming weight = 0.003 here, but it should change to the actual value
+    /** stomach state (units) */
+    protected double psurvival = 1; // Here initial value of p_survival
     /** growth rate for standard length (mm/d) */
     protected double grSL = 0;
     /** growth rate for dry weight (1/d) */
@@ -352,10 +353,12 @@ public class YSLStage extends AbstractLHS {
             double SL = oldAtts.getValue(EggStageAttributes.PROP_SL, std_len);
             atts.setValue(YSLStageAttributes.PROP_SL,SL);
             //need to base YSL DW on YSL SL regression because YSL DW doesn't include yolk-sac
-            double DW = (Double) fcnSLtoDW.calculate(SL);
+            //double DW = (Double) fcnSLtoDW.calculate(SL);
+            double DW = IBMFunction_NonEggStageBIOENGrowthRateDW.getW_fromL(SL);
             atts.setValue(YSLStageAttributes.PROP_DW,DW);
             double stmsta_2 = 0.3*0.06*DW; // stomach_threshold*gut_size*weight. just a placeholder. start value when progYSA>=1.0
-            atts.setValue(YSLStageAttributes.PROP_stmsta,stmsta_2);                   
+            atts.setValue(YSLStageAttributes.PROP_stmsta,stmsta_2);   
+            atts.setValue(YSLStageAttributes.PROP_psurvival,psurvival);                                   
             atts.setValue(YSLStageAttributes.PROP_grSL,oldAtts.getValue(EggStageAttributes.PROP_grSL, grSL));
             atts.setValue(YSLStageAttributes.PROP_grDW,oldAtts.getValue(EggStageAttributes.PROP_grDW, grDW));
             //need to set attributes NOT included in EggStageAttributes
@@ -767,9 +770,25 @@ public class YSLStage extends AbstractLHS {
         double meta = 0;
         double sum_ing = 0;
         double assi = 0;
+        double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
-        // double lat = pos[2]; // lat value not in this way
         double old_std_len = std_len;
+        // Light (begin):
+        // create object for light calculation:
+        double eb = 0; // create Eb object
+        double[] eb2 = new double[2]; // K parameter and second part of Eb equation
+        double[] ltemp = new double[3];
+        double[] ltemp2 = new double[2];
+        CalendarIF cal2 = null; // TODO: julian day looks to be calculated for the previous time. is this correct?
+        cal2 = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
+        ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal2.getYearDay()); // see line 713 in ibm.py
+        double maxLight = ltemp[0]/0.217; // radfl0 from  W/m2 to umol/m2/s-1 see line 714 in ibm.py
+        ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal2.getYearDay(), maxLight); // see line 715 in ibm.py
+        eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll,depth,bathym); // second part of Eb equation
+        // TODO: figure out if chl-a should be at the surface
+        eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
+        // Light (end):
+
 
         //get effective temperature as average temp at new and old locations
         double T1 = i3d.interpolateTemperature(pos);
@@ -810,11 +829,20 @@ public class YSLStage extends AbstractLHS {
             if (progYSA < 1.0){
 
                 // yolk-sac absorption is incomplete
-                // growth standard equation:
+                // growth standard equation (full capacity):
                 grDW = ((0.454 + 1.610*T - 0.069*T*T)*Math.exp(-6.725*dry_wgt))/100; // TODO: it is just easier to put the equation here. should be stage-specific?
                 gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
                 stmsta = 0.3*0.06*dry_wgt; // just a placeholder. start value when progYSA>=1.0
                 dry_wgt += gr_mg_fac;
+                // Just placeholders during YSA < 1
+                sum_ing = 0.1; 
+                stomachFullness = 0.1;
+
+                if (typeGrDW==YSLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
+                    // Replace previous calculated value:
+                    std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(old_dry_wgt, old_std_len);
+                    grSL = std_len - old_std_len;
+                }
 
             }
 
@@ -846,38 +874,23 @@ public class YSLStage extends AbstractLHS {
                 } 
                 if (typeGrDW==YSLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
 
-                    // Light (begin):
-                    // create object for light calculation:
-                    double eb = 0; // create Eb object
-                    double[] eb2 = new double[2]; // K parameter and second part of Eb equation
-                    double[] ltemp = new double[3];
-                    double[] ltemp2 = new double[2];
-                    CalendarIF cal2 = null; // TODO: julian day looks to be calculated for the previous time. is this correct?
-                    cal2 = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
-                    ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal2.getYearDay()); // see line 713 in ibm.py
-                    double maxLight = ltemp[0]/0.217; // radfl0 from  W/m2 to umol/m2/s-1 see line 714 in ibm.py
-                    ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal2.getYearDay(), maxLight); // see line 715 in ibm.py
-                    eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll,depth,bathym); // second part of Eb equation
-                    // TODO: figure out if chl-a should be at the surface
-                    eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
-                    // Light (end):
-
                     // Turbulence and wind (begin)
                     double windX = Math.abs(Math.sqrt(Math.abs(tauX)/(1.3*1.2E-3))); // Wind velocity In m/s
                     double windY = Math.abs(Math.sqrt(Math.abs(tauY)/(1.3*1.2E-3))); // Wind velocity In m/s
                     // Turbulence and wind (end)
 
                     // Bioenergetic growth calculation:
-                    bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,copepods,eb2[0]}); //should length be at t or t-1?
+                    bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,copepods,eb2[0]}); //should length be at t or t-1?
                     grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
                     meta = bioEN_output[1];
                     sum_ing = bioEN_output[2];
                     assi = bioEN_output[3];
+                    stomachFullness = bioEN_output[4];
                     double costRateOfMetabolism = 0.5; // check this number
                     double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
 
                     // Update values:
-                    stmsta = Math.max(0, Math.min(0.06*dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
+                    stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
                     gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
 
                     // new weight in mg:
@@ -886,8 +899,9 @@ public class YSLStage extends AbstractLHS {
                     // Update (again) stmsta for next time step:
                     stmsta = Math.max(0, stmsta - ((dry_wgt - old_dry_wgt) + meta)/assi);
 
-                    // Calculate std_len from from weight information:
-                    std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len, 2.813, -0.1692, 0.0584); // get parameters from R script
+                    // Update Length:
+                    std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len);
+                    grSL = std_len - old_std_len;
 
                     if(sum_ing > 0.00001) hasFed = true; // TODO: check this condition. should I use sum_ing?
 
@@ -897,17 +911,27 @@ public class YSLStage extends AbstractLHS {
 
         }
           
-        // Here growth:
-        //std_len += grSL*dtday;
-        //dry_wgt += gr_mg_fac;
-
-        // Print light in grSL field, just to check the calculation (temporally):
-        grSL = sum_ing;
-        grDW = gr_mg_fac;
 
         // END OF BIOEN CHANGES ------------------------------------
 
-        updateNum(dt);
+        // updateNum(dt);
+
+        // New Mortality:
+        // TODO: adapt this to a new mortality function:
+        if (typeGrDW==YSLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
+
+            double[] mort_out = new double[2]; // for mortality output
+            mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+            // mort_out[0] = mortality. mort_out[1] = starved
+            if(mort_out[1] > 1000) {
+                psurvival = 0;
+            } else {
+                psurvival = psurvival*Math.exp(-dt*mort_out[0]);
+            }
+        number = number*psurvival;
+
+        }
+
         updateAge(dt);
         updatePosition(pos);
         interpolateEnvVars(pos);
@@ -1050,6 +1074,7 @@ public class YSLStage extends AbstractLHS {
         }
         number = number*Math.exp(-dt*totRate/86400);
         //}: WTS_NEW 2012-07-26
+
     }
     
     private void updatePosition(double[] pos) {
@@ -1150,6 +1175,7 @@ public class YSLStage extends AbstractLHS {
         atts.setValue(YSLStageAttributes.PROP_SL,std_len);
         atts.setValue(YSLStageAttributes.PROP_DW,dry_wgt);
         atts.setValue(YSLStageAttributes.PROP_stmsta,stmsta);
+        atts.setValue(YSLStageAttributes.PROP_psurvival,psurvival);
         atts.setValue(YSLStageAttributes.PROP_grSL,grSL);
         atts.setValue(YSLStageAttributes.PROP_grDW,grDW);
         atts.setValue(YSLStageAttributes.PROP_temperature,temperature);
@@ -1172,7 +1198,8 @@ public class YSLStage extends AbstractLHS {
         attached    = atts.getValue(YSLStageAttributes.PROP_attached,attached);
         std_len     = atts.getValue(YSLStageAttributes.PROP_SL,std_len); 
         dry_wgt     = atts.getValue(YSLStageAttributes.PROP_DW,dry_wgt);
-        stmsta    = atts.getValue(YSLStageAttributes.PROP_stmsta,stmsta);  
+        stmsta    = atts.getValue(YSLStageAttributes.PROP_stmsta,stmsta); 
+        psurvival    = atts.getValue(YSLStageAttributes.PROP_psurvival,psurvival);   
         grSL        = atts.getValue(YSLStageAttributes.PROP_grSL,grSL); 
         grDW        = atts.getValue(YSLStageAttributes.PROP_grDW,grDW); 
         temperature = atts.getValue(YSLStageAttributes.PROP_temperature,temperature);
