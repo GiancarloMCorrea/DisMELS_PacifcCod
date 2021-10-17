@@ -78,6 +78,12 @@ public class YSLStage extends AbstractLHS {
     private static final String Eup = "Eup";
     /* string identifying environmental field with neocalanus densities */
     private static final String NCa = "NCa";
+    /* string identifying environmental field with euphausiids shelf densities */
+    private static final String EupS = "EupS";
+    /* string identifying environmental field with microzooplankton densities */
+    private static final String Mzl = "Mzl";
+    /* string identifying environmental field with neocalanus shelf densities */
+    private static final String NCaS = "NCaS";
     /* string identifying environmental field with large phytoplankton densities */
     private static final String PhL = "PhL";
     /* string identifying environmental field with small phytoplankton densities */
@@ -720,14 +726,15 @@ public class YSLStage extends AbstractLHS {
         copepods    = i3d.interpolateValue(pos,Cop,Interpolator3D.INTERP_VAL);
         euphausiids = i3d.interpolateValue(pos,Eup,Interpolator3D.INTERP_VAL);
         neocalanus  = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
-        // ADD HERE OTHER ZOOPLANKTON PREY ITEMS
+        double neocalanus_shelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
+        double euphausiids_shelf  = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
+        double microzoo  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
         double tauX = i3d.interpolateValue(pos2d,Su,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double tauY = i3d.interpolateValue(pos2d,Sv,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4        
-        // double bathy = i3d.interpolateBathymetricDepth(pos);
 
         double[] res = calcW(pos,dt);//calc w and attached indicator
         double w     = Math.signum(dt)*res[0];
@@ -880,7 +887,7 @@ public class YSLStage extends AbstractLHS {
                     // Turbulence and wind (end)
 
                     // Bioenergetic growth calculation:
-                    bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,copepods,eb2[0]}); //should length be at t or t-1?
+                    bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],euphausiids,euphausiids_shelf,neocalanus_shelf,neocalanus,copepods,microzoo}); //should length be at t or t-1?
                     grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
                     meta = bioEN_output[1];
                     sum_ing = bioEN_output[2];

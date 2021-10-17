@@ -71,6 +71,20 @@ public class EpijuvStage extends AbstractLHS {
     private static final String FIELD_Eup = "Eup";
     /* string identifying environmental field with neocalanus densities */
     private static final String FIELD_NCa = "NCa";
+    /* string identifying environmental field with euphausiids shelf densities */
+    private static final String EupS = "EupS";
+    /* string identifying environmental field with microzooplankton densities */
+    private static final String Mzl = "Mzl";
+    /* string identifying environmental field with neocalanus shelf densities */
+    private static final String NCaS = "NCaS";
+    /* string identifying environmental field with large phytoplankton densities */
+    private static final String PhL = "PhL";
+    /* string identifying environmental field with small phytoplankton densities */
+    private static final String PhS = "PhS";
+    /* string identifying environmental field with u surface stress */
+    private static final String Su = "Su";
+    /* string identifying environmental field with v surface stress */
+    private static final String Sv = "Sv";
     
     //Instance fields
             //  Fields hiding ones from superclass
@@ -125,6 +139,10 @@ public class EpijuvStage extends AbstractLHS {
     protected double grWW = 0;
     /** habitat suitability index value */
     protected double hsi = 0;    
+    /** stomach state (units) */
+    protected double stmsta = 0;
+    /** stomach state (units) */
+    protected double psurvival = 1;
     
             //other fields
     /** number of individuals transitioning to next stage */
@@ -475,6 +493,8 @@ public class EpijuvStage extends AbstractLHS {
             
             if (fcnGrDW instanceof IBMFunction_NonEggStageSTDGrowthRateDW) 
                 typeGrDW = EpijuvStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate;
+            else if (fcnGrDW instanceof IBMFunction_NonEggStageBIOENGrowthRateDW)
+                typeGrDW = EpijuvStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate;
             
             if (fcnGrTL instanceof IBMFunction_Epijuv_GrowthRateTL)    
                 typeGrTL = EpijuvStageParameters.FCN_GrTL_Epijuv_GrowthRate;
@@ -692,9 +712,27 @@ public class EpijuvStage extends AbstractLHS {
     public void step(double dt) throws ArrayIndexOutOfBoundsException {
         //WTS_NEW 2012-07-26:{
         double[] pos = lp.getIJK();
+        double[] pos2d = new double[2];
+        pos2d[0] = pos[0];
+        pos2d[1] = pos[1];
         //SH_NEW
         double T = i3d.interpolateTemperature(pos);
         if(T<=0.0) T=0.01; 
+
+        //SH-Prey Stuff  
+        copepod    = i3d.interpolateValue(pos,FIELD_Cop,Interpolator3D.INTERP_VAL);
+        euphausiid = i3d.interpolateValue(pos,FIELD_Eup,Interpolator3D.INTERP_VAL);
+        neocalanus = i3d.interpolateValue(pos,FIELD_NCa,Interpolator3D.INTERP_VAL);
+        double neocalanus_shelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
+        double euphausiids_shelf  = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
+        double microzoo  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
+        double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
+        double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
+        double tauX = i3d.interpolateValue(pos2d,Su,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        double tauY = i3d.interpolateValue(pos2d,Sv,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
+        double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
+        // values 25 and 65 based on Kearney et al 2018 Table A4
+
                 
         double[] uvw = calcUVW(pos,dt,T);//this also sets "attached" and may change pos[2] to 0
         if (attached){
@@ -723,22 +761,110 @@ public class EpijuvStage extends AbstractLHS {
         
         time = time+dt;
         double dtday = dt/86400;        //dt=biolmodel time step. At 72/day, dt(sec)= 1200; dtday=0.014
-        if (typeGrSL==EpijuvStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate)
+
+        // Create objects for output of BIOEN:
+        double[] bioEN_output = new double[5]; // output object of BIOEN calculation
+        double gr_mg_fac = 0; // factor to avoid dry_wgt in IF 
+        double meta = 0;
+        double sum_ing = 0;
+        double assi = 0;
+        double stomachFullness = 0;
+        double old_dry_wgt = dry_wgt; // save previous dry_wgt
+        double old_std_len = std_len;
+        // Light (begin):
+        // create object for light calculation:
+        double[] eb2 = new double[2]; // K parameter + second part of Eb equation
+        double eb = 0; // create Eb object
+        CalendarIF cal2 = null;
+        double[] ltemp = new double[3];
+        double[] ltemp2 = new double[2];
+        cal2 = GlobalInfo.getInstance().getCalendar(); // to calculate julian day
+        ltemp = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightQSW(lat,cal2.getYearDay()); // see line 713 in ibm.py
+        double maxLight = ltemp[0]/0.217; // see line 714 in ibm.py
+        ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal2.getYearDay(), maxLight); // see line 715 in ibm.py
+        eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll, depth, bathym); // K parameter and second part of Eb equation
+        eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
+        // Light (end):
+
+        // SL:
+        if (typeGrSL==EpijuvStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate) {
             grSL = (Double) fcnGrSL.calculate(new Double[]{T,std_len});
-        if (typeGrDW==EpijuvStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate)
+            std_len += grSL*dtday;
+        }
+
+        // DW:
+        if (typeGrDW==EpijuvStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate) {
             grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt});
-        if (typeGrTL==EpijuvStageParameters.FCN_GrTL_Epijuv_GrowthRate)
+            gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
+            dry_wgt += gr_mg_fac;
+        }
+
+        // TL:
+        if (typeGrTL==EpijuvStageParameters.FCN_GrTL_Epijuv_GrowthRate){
             grTL = (Double) fcnGrTL.calculate(T);
+            tot_len += grTL*dtday; // This value matters (for movement)
+        }
+
+        if (typeGrDW==EpijuvStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate){
+
+            // Turbulence and wind (begin)
+            double windX = Math.abs(Math.sqrt(Math.abs(tauX)/(1.3*1.2E-3))); // Wind velocity In m/s
+            double windY = Math.abs(Math.sqrt(Math.abs(tauY)/(1.3*1.2E-3))); // Wind velocity In m/s
+            // Turbulence and wind (end)
+
+            // Bioenergetic growth calculation:
+            bioEN_output = IBMFunction_NonEggStageBIOENGrowthRateDW.calculateJuv(T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],euphausiid,euphausiids_shelf,neocalanus_shelf,neocalanus,copepod,microzoo); //should length be at t or t-1?
+            grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
+            meta = bioEN_output[1];
+            sum_ing = bioEN_output[2];
+            assi = bioEN_output[3];
+            stomachFullness = bioEN_output[4];
+            double costRateOfMetabolism = 0.5; // check this number
+            double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
+
+            // Update values:
+            stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
+            gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
+
+            // New weight in mg:
+            dry_wgt += gr_mg_fac;
+
+            // Update (again) stmsta for next time step:
+            stmsta = Math.max(0, stmsta - ((dry_wgt - old_dry_wgt) + meta)/assi);
+
+            // Calculate std_len from from weight information:
+            std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len); // get parameters from R script
+            grSL = std_len - old_std_len;
+
+            tot_len = std_len*1.05; // Just multiply by a factor, TODO: discuss this later
+
+        }
+
         if (typeGrWW==EpijuvStageParameters.FCN_GrWW_Epijuv_GrowthRate)
             grWW = (Double) fcnGrWW.calculate(T);
-        std_len += grSL*dtday;
-        dry_wgt *= Math.exp(grDW * dtday);
-        tot_len += grTL*dtday;
-        wet_wgt *= Math.exp(grWW * dtday);
+
+        wet_wgt *= Math.exp(grWW * dtday); // This values does not matter
         
         updatePosition(pos);
         updateEnvVars(pos);
-        updateNum(dt);
+        // updateNum(dt);
+
+        // New Mortality:
+        // TODO: adapt this to a new mortality function:
+        if (typeGrDW==EpijuvStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
+
+            double[] mort_out = new double[2]; // for mortality output
+            mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+            // mort_out[0] = mortality. mort_out[1] = starved
+            if(mort_out[1] > 1000) {
+                psurvival = 0;
+            } else {
+                psurvival = psurvival*Math.exp(-dt*mort_out[0]);
+            }
+        number = number*psurvival;
+
+        }
+
         updateAge(dt);
         
         //check for exiting grid
@@ -1055,6 +1181,8 @@ public class EpijuvStage extends AbstractLHS {
         atts.setValue(EpijuvStageAttributes.PROP_grTL,       grTL);
         atts.setValue(EpijuvStageAttributes.PROP_grWW,       grWW);
         atts.setValue(EpijuvStageAttributes.PROP_hsi,        hsi);
+        atts.setValue(EpijuvStageAttributes.PROP_stmsta,     stmsta);
+        atts.setValue(EpijuvStageAttributes.PROP_psurvival,  psurvival);
     }
 
     /**
@@ -1079,6 +1207,8 @@ public class EpijuvStage extends AbstractLHS {
         grTL        = atts.getValue(EpijuvStageAttributes.PROP_grTL,        grTL);
         grWW        = atts.getValue(EpijuvStageAttributes.PROP_grWW,        grWW);
         hsi         = atts.getValue(EpijuvStageAttributes.PROP_hsi,         hsi);
+        stmsta      = atts.getValue(EpijuvStageAttributes.PROP_stmsta,stmsta);
+        psurvival    = atts.getValue(EpijuvStageAttributes.PROP_psurvival,psurvival);
     }
 
 }
