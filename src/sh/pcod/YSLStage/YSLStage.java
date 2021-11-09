@@ -92,7 +92,11 @@ public class YSLStage extends AbstractLHS {
     private static final String Su = "Su";
     /* string identifying environmental field with v surface stress */
     private static final String Sv = "Sv";
-    
+    /* string identifying environmental field with u surface stress */
+    private static final String pCO2 = "pCO2";
+    /* string identifying environmental field with v surface stress */
+    private static final String Mzs = "Mzs";
+        
     //Instance fields
             //  Fields hiding ones from superclass
     /* life stage atrbutes object */
@@ -728,13 +732,17 @@ public class YSLStage extends AbstractLHS {
         neocalanus  = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
         double neocalanus_shelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
         double euphausiids_shelf  = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
-        double microzoo  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
+        double microzoo_large  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
         double tauX = i3d.interpolateValue(pos2d,Su,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double tauY = i3d.interpolateValue(pos2d,Sv,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4        
+        double microzoo_small  = i3d.interpolateValue(pos,Mzs,Interpolator3D.INTERP_VAL);
+        double microzoo = microzoo_small + microzoo_large; // total microzooplankton
+        double pCO2_conc  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
+        double facCO2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcCO2(pCO2_conc);
 
         double[] res = calcW(pos,dt);//calc w and attached indicator
         double w     = Math.signum(dt)*res[0];
@@ -777,6 +785,8 @@ public class YSLStage extends AbstractLHS {
         double meta = 0;
         double sum_ing = 0;
         double assi = 0;
+        double costRateOfMetabolism = 0.5; // check this number
+        double activityCost = 0;
         double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double old_std_len = std_len;
@@ -838,12 +848,21 @@ public class YSLStage extends AbstractLHS {
                 // yolk-sac absorption is incomplete
                 // growth standard equation (full capacity):
                 grDW = ((0.454 + 1.610*T - 0.069*T*T)*Math.exp(-6.725*dry_wgt))/100; // TODO: it is just easier to put the equation here. should be stage-specific?
+                if((std_len > 5.5) && (std_len <= 6)) {
+                    grDW = grDW*(1 - facCO2*0.1);
+                }
+                if((std_len > 6) && (std_len < 9)) {
+                    grDW = grDW*(1 + facCO2*0.2);
+                }
+
+                meta = dtday*2.38e-7*Math.exp(0.088*T)*Math.pow(dry_wgt,0.9)*(1 + facCO2*0.1);
+                activityCost = 0.5*meta*costRateOfMetabolism;
                 gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
                 stmsta = 0.3*0.06*dry_wgt; // just a placeholder. start value when progYSA>=1.0
-                dry_wgt += gr_mg_fac;
+                dry_wgt += (gr_mg_fac - activityCost);
                 // Just placeholders during YSA < 1
                 sum_ing = 0.1; 
-                stomachFullness = 0.1;
+                stomachFullness = 1;
 
                 if (typeGrDW==YSLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
                     // Replace previous calculated value:
@@ -887,14 +906,13 @@ public class YSLStage extends AbstractLHS {
                     // Turbulence and wind (end)
 
                     // Bioenergetic growth calculation:
-                    bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],euphausiids,euphausiids_shelf,neocalanus_shelf,neocalanus,copepods,microzoo}); //should length be at t or t-1?
+                    bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],neocalanus_shelf,neocalanus,copepods,microzoo,pCO2_conc}); //should length be at t or t-1?
                     grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
                     meta = bioEN_output[1];
                     sum_ing = bioEN_output[2];
                     assi = bioEN_output[3];
                     stomachFullness = bioEN_output[4];
-                    double costRateOfMetabolism = 0.5; // check this number
-                    double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
+                    activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
 
                     // Update values:
                     stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
@@ -918,27 +936,20 @@ public class YSLStage extends AbstractLHS {
 
         }
           
+        // Survival rate (begin):
+        double[] mort_out = new double[2]; // for mortality output
+        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+        // mort_out[0] = mortality. mort_out[1] = starved
+        if(mort_out[1] > 1000) {
+            psurvival = 0;
+        } else {
+            psurvival = psurvival*Math.exp(-dt*mort_out[0]);
+        }
+        // Survival rate (end):
 
         // END OF BIOEN CHANGES ------------------------------------
 
-        // updateNum(dt);
-
-        // New Mortality:
-        // TODO: adapt this to a new mortality function:
-        if (typeGrDW==YSLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
-
-            double[] mort_out = new double[2]; // for mortality output
-            mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
-            // mort_out[0] = mortality. mort_out[1] = starved
-            if(mort_out[1] > 1000) {
-                psurvival = 0;
-            } else {
-                psurvival = psurvival*Math.exp(-dt*mort_out[0]);
-            }
-        number = number*psurvival;
-
-        }
-
+        updateNum(dt);
         updateAge(dt);
         updatePosition(pos);
         interpolateEnvVars(pos);

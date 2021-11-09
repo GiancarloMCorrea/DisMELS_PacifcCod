@@ -104,23 +104,24 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double stm_sta = vals[9]; // stomach 
         double attCoeff = vals[10]; // K parameter in Fiksen et al 2002
         // Prey items: should be in this order (by size):
-        double eupo = vals[11]; // prey item 1
-        double eups = vals[12]; // prey item 2
-        double ncas = vals[13]; // prey item 3
-        double ncao = vals[14]; // prey item 4
-        double cop = vals[15]; // prey item 5
-        double mzl = vals[16]; // prey item 6
+        double ncas = vals[11]; // prey item 3
+        double ncao = vals[12]; // prey item 4
+        double cop = vals[13]; // prey item 5
+        double mzl = vals[14]; // prey item 6
+        double pCO2 = vals[15]; // pco2 conc
         // prey information
-        double npreyitems = 6; // number of prey items
-        double[] zoo_carbon = {eupo, eups, ncas, ncao, cop, mzl}; 
-        double[] par_a = {1.38E-8, 7.83E-9, 9.53E-6, 1E-10, 2.4E-8, 2.63E-6}; 
-        double[] par_b = {2.98, 3.02, 4.034, 3.65, 2.85, 2.23}; 
-        double[] min_len = {12000, 12000, 900, 400, 400, 20}; // minimum length in um
-        double[] dlen = {1600, 1100, 180, 90, 80, 16}; // size bin in um
+        double npreyitems = 4; // number of prey items
+        double[] zoo_carbon = {ncas, ncao, cop, mzl}; 
+        double[] par_a = {2.75E-12, 1E-10, 2.4E-8, 2.63E-6}; 
+        double[] par_b = {4.03, 3.56, 2.85, 2.23}; 
+        double[] min_len = {900, 400, 400, 20}; // minimum length in um
+        double[] dlen = {180, 90, 80, 16}; // size bin in um
 
+        //calculate pco2 factor:
+        double facCO2 = calcCO2(pCO2);
 
         // Begin function:
-        double meta = dtday*2.38e-7*Math.exp(0.088*t)*Math.pow(m,0.9); // as in Kristiansen et al 2007. Units: mg/day (without dt). HERE I CHANGED dt FOR dtday 
+        double meta = dtday*2.38e-7*Math.exp(0.088*t)*Math.pow(m,0.9)*(1 + facCO2*0.1); // as in Kristiansen et al 2007. Units: mg/day (without dt). HERE I CHANGED dt FOR dtday 
         // dtday makes more sense 
 
         if(eb > 0.001) {
@@ -133,6 +134,13 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
         double assi = 0.8*(1-0.4*Math.exp(-0.002*(m*1000-50)));// mg2ug=1000 here. No units
         double r = ((0.454 + 1.610*t - 0.069*t*t)*Math.exp(-6.725*m))/100;// units: 1/day. This is similar to 'g' (1/day) in TROND. 
+        if((std_len > 5) && (std_len <= 6)) {
+            r *= (1 - facCO2*0.05);
+        }
+        if((std_len > 6) && (std_len < 9)) {
+            r *= (1 + facCO2*0.05);
+        }
+
         double gr_mg = m*(Math.exp(r*dtday) - 1); // Same as TROND
 
         // START FORAGING PART:
@@ -145,6 +153,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double m_teta = Math.PI/6;
         double var_teta = Math.PI/6;
         double x_star = 0.5*std_len;
+        // Values in Fiksen and MacKenzie 2002b:
         double speed_fish = 10.0;
         double speed_prey = 100.0;
         double va = speed_fish*std_len;
@@ -157,152 +166,192 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double[] hand = new double[12];
         double[] pca = new double[12];
         double[] psa = new double[12];
+        double prey_normal_speed = 0;
 
         int n_enc = 10;
         double eps = (5.82*1e-9*Math.pow(Math.sqrt(Math.pow(windX,2) + Math.pow(windY,2)), 3))/(depth+0.1); // Equation 1 in MacKenzie and Leggett 1993
-        double gape = Math.exp(-3.720 + 1.818*Math.log(std_len) - 0.1219*Math.pow(Math.log(std_len), 2));
+        double gape = Math.exp(-3.720 + 1.818*Math.log(std_len) - 0.1219*Math.pow(Math.log(std_len), 2)); // mouth diameter
+        double capt_prob = 0; // for std_len > 17
 
         Double[] return_vec = new Double[5]; // value to Return should be specified here
         // This is an 2D array of length = 4
 
         double sum_ing = 0; // sum ingestion 
         double stomachFullness = 0; // stomach fullness
+        double firstCond = 0; // condition
+        double secondCond = 0;
 
         prey_item_loop: for(int pit=0; pit<npreyitems; pit++) {
 
-        // Zooplankton per len bin:
-        double[][] out_zoo = null;
-        out_zoo = zooplankton(zoo_carbon[pit], par_a[pit], par_b[pit], min_len[pit], dlen[pit]);
-        double[] prey_len = out_zoo[0]; // in mm per len bin
-        double[] prey_wgt = out_zoo[1]; // in ug per len bin
-        double[] prey_area = out_zoo[2]; // in mm^2 per len bin
-        double[] prey_abun = out_zoo[3]; // in no.ind/L per len bin
+            // Zooplankton per len bin:
+            double[][] out_zoo = null;
+            out_zoo = zooplankton(zoo_carbon[pit], par_a[pit], par_b[pit], min_len[pit], dlen[pit]);
+            double[] prey_len = out_zoo[0]; // in mm per len bin
+            double[] prey_wgt = out_zoo[1]; // in ug per len bin
+            double[] prey_area = out_zoo[2]; // in mm^2 per len bin
+            double[] prey_abun = out_zoo[3]; // in no.ind/L per len bin
 
-        if(stomachFullness >= 1) { // if larva is full, stop loop
+            // Check if larva will have chance to capture the smallest prey in this item
+            firstCond = prey_len[0]/std_len;
 
-            break prey_item_loop;
+            if(firstCond > 0.09) { // conditional based on preference spectrum (Munk 1997)
 
-        } else {
-        
-                if(prey_len[0]*0.4 < gape) { // conditional. if minimum prey width (length*0.4) is larger than gape, so do not run loop
+                continue prey_item_loop;
 
-                int ii = prey_area.length; // length of prey_area vector.
+            } else {
 
-                    // Begin loop:
-                    for(int i=0; i<ii; i++){
+            int ii = prey_area.length; // length of prey_area vector.
 
-                        double ier = 0;
-                        double visual = Math.sqrt(em*contrast*prey_area[i]*(eb/(ke_larvae+eb)));
-                        double image = prey_area[i];
+                // Begin loop:
+                length_loop: for(int i = ii-1; i >= 0; i--) { // reverse loop:
 
-                        if(eb < 1E-100) { // Here is the bug I got. When Eb is extremely small, no run the visual estimation algorithm, then visual = 0
-                            visual = 0;
+                    // Check if larva will have chance to capture the smallest prey in this item (Munk et al 1997)
+                    secondCond = prey_len[i]/std_len;
+
+                    if(secondCond > 0.09) {
+
+                        continue length_loop;
+
+                    } else {
+
+                        if(stomachFullness == 1) {
+
+                            break prey_item_loop;
+
                         } else {
-                            double[] getr_out = new double[2];
-                            getr_out = getr(visual, beamAttCoeff/1000, contrast, image, em, ke_larvae, eb, ier); // m2mm = 1000
-                            visual = getr_out[1]; // 0 = new ier, 1 = new 'visual' value after getr
-                        }
 
-                        pca[i] = Math.max(0, Math.min(1, -16.7*(prey_len[i]/std_len) + (3/2)));
+                            double ier = 0;
+                            double visual = Math.sqrt(em*contrast*prey_area[i]*(eb/(ke_larvae+eb)));
+                            double image = prey_area[i];
 
-                        // Capture and approach probabilities:
-                        double c = 0.5*gape;
-                        double rs = c + 0.1*std_len;
-                        double d_crit = 0.264/prey_len[i];
-                        double w = speed_prey*prey_len[i]; // prey escape velocity
-                        double capt_pca = 0;
-                        double capt_psa = 0;
-                        double travel = 0.43;
-                        int max_ats = 3; // max number of ats
-                        pt = 0;
+                            if(eb < 1E-50) { // Here is the bug I got. When Eb is extremely small, no run the visual estimation algorithm, then visual = 0
 
-                        // Calculate the probability of approach and capture
-                        enc_loop: for(int j = 1; j <= n_enc; j++){
+                                visual = 0;
+                                ing[i] = 0; // no ingestion in dark environemnts
 
-                            double d = Math.max(visual, c);
-                            int k_iter_last = 1;
-                            
-                            approach_loop: for(int k = 1; k <= dt_num; k++){
+                            } else {
 
-                                double v = 0;
-                                k_iter_last = k;
-                                if(d > rs) {
-                                    v = (d_crit*2*(Math.pow(d, 4)))/(3*c*((Math.pow(d,2))-(Math.pow(c, 2))));
-                                    v = dt_pca*Math.min(std_len, v);
-                                } else {
-                                    capt_psa = capt_psa + 1;
-                                    break approach_loop;
-                                }
+                                double[] getr_out = new double[2];
+                                getr_out = getr(visual, beamAttCoeff/1000, contrast, image, em, ke_larvae, eb, ier); // m2mm = 1000
+                                visual = getr_out[1]; // 0 = new ier, 1 = new 'visual' value after getr
 
-                                dr = -1*v*(1-(3*c/(2*d))+Math.pow(c,2)/(2*Math.pow(d,3)));
-                                d = d + dr;
+                                // pca[i] = Math.max(0, Math.min(1, -16.7*(prey_len[i]/std_len) + (3/2)));
 
-                            }
+                                // Capture and approach probabilities:
+                                double c = 0.5*gape;
+                                double rs = c + 0.1*std_len;
+                                double d_crit = 0.264/prey_len[i];
+                                double w = speed_prey*prey_len[i]; // prey escape velocity
+                                double capt_pca = 0;
+                                double capt_psa = 0;
+                                double travel = 0.43; // s-1. Fiksen and McKenzie 2002
+                                int max_ats = 3; // max number of ats
+                                pt = 0;
 
-                            pt = pt + k_iter_last*dt_pca;
+                                if(std_len <= 17) { // Run as Fiksen McKenzie 2002
+                                    // Calculate the probability of approach and capture
+                                    enc_loop: for(int j = 1; j <= n_enc; j++){
 
-                            // THIS LOOP IS GENERATED BY MYSELF (Giancarlo). IT IS A BETTER WAY TO PROGRAM THIS PART
+                                        double d = Math.max(visual, c);
+                                        int k_iter_last = 1;
+                                        
+                                        approach_loop: for(int k = 1; k <= dt_num; k++){
 
-                            enc_loop_part2: for(int j2 = 1; j2 <= max_ats; j2++) {
+                                            double v = 0;
+                                            k_iter_last = k;
+                                            if(d > rs) {
+                                                v = (d_crit*2*(Math.pow(d, 4)))/(3*c*((Math.pow(d,2))-(Math.pow(c, 2))));
+                                                v = dt_pca*Math.min(std_len, v);
+                                            } else {
+                                                capt_psa = capt_psa + 1;
+                                                break approach_loop;
+                                            }
 
-                                // Generate random number:
-                                double r_rand = Math.random();
-                                // Apply n_dev function: (begin)
-                                double u1 = Math.max(0.00001, r_rand);
-                                var_teta = Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*r_rand);
-                                // (end)
+                                            dr = -1*v*(1-(3*c/(2*d))+Math.pow(c,2)/(2*Math.pow(d,3)));
+                                            d = d + dr;
 
-                                double teta = (m_teta - var_teta*m_teta);
+                                        }
 
-                                if(teta > Math.PI) { 
-                                    teta = 2*Math.PI - teta;
-                                }
+                                        pt = pt + k_iter_last*dt_pca;
 
-                                teta = Math.abs(teta);
+                                        // THIS LOOP IS GENERATED BY MYSELF (Giancarlo). IT IS A BETTER WAY TO PROGRAM THIS PART
 
-                                if(teta < Math.PI*0.5) {
-                                    if((gape*0.5/x_star) > Math.tan(teta)) {
-                                        if((x_star*Math.cos(teta)/w) < ((rs - c + x_star)/va)) {
-                                            continue enc_loop_part2;
-                                        } 
-                                    }
-                                }
+                                        enc_loop_part2: for(int j2 = 1; j2 <= max_ats; j2++) {
 
-                                // Equation 11 in Fiksen and MacKenzie 2002
-                                double capture = (w/va) * (Math.sin(teta)*(rs+c)+(gape/2)*Math.cos(teta));
+                                            // Generate random number:
+                                            double r_rand = Math.random();
+                                            // Apply n_dev function: (begin)
+                                            double u1 = Math.max(0.00001, r_rand);
+                                            var_teta = Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*r_rand);
+                                            // (end)
 
-                                if(capture < (gape*0.5)) {
-                                    capt_pca = capt_pca + 1;
-                                } else {
-                                    continue enc_loop_part2;
-                                }
+                                            double teta = (m_teta - var_teta*m_teta);
 
-                            }
+                                            if(teta > Math.PI) { 
+                                                teta = 2*Math.PI - teta;
+                                            }
 
-                        } // End enc_loop
+                                            teta = Math.abs(teta);
 
-                        pt = pt/n_enc;
+                                            if(teta < Math.PI*0.5) {
+                                                if((gape*0.5/x_star) > Math.tan(teta)) {
+                                                    if((x_star*Math.cos(teta)/w) < ((rs - c + x_star)/va)) {
+                                                        continue enc_loop_part2;
+                                                    } 
+                                                }
+                                            }
 
-                        psa[i] = Math.min(1, capt_psa/n_enc);
-                        pca[i] = Math.min(1, capt_pca/n_enc);
+                                            // Equation 11 in Fiksen and MacKenzie 2002
+                                            double capture = (w/va) * (Math.sin(teta)*(rs+c)+(gape/2)*Math.cos(teta));
 
-                        double omega = Math.sqrt(3.615*Math.pow((eps*visual*0.001), 0.667)); //mm2m = 0.001. Equation 11 in MacKenzie Miller 1994. Is it wrong in TROND?
-                        omega = omega * 1000; // m2mm = 1000. From m/s to mm/s
+                                            if(capture < (gape*0.5)) {
+                                                capt_pca = capt_pca + 1;
+                                            } else {
+                                                continue enc_loop_part2;
+                                            }
 
-                        // Equation 3 in Walton 1992. Parametrized differently:
-                        hand[i] = 0.264*Math.pow(10, (7.0151*(prey_len[i]/std_len)));
-                        // See Fiksen and MacKenzie 2002 Equation 1: (the term Math.pow(prey_len[i], 2) is wrong?)
-                        enc[i] = ((0.667*Math.PI*Math.pow(visual,3)*travel + Math.PI*Math.pow(visual,2)*Math.sqrt(Math.pow(prey_len[i], 2) + 2*Math.pow(omega,2))*travel*2)*(1*prey_abun[i])*1e-6); // tau = 2. MultiplyPrey = 1. ltr2mm3 = 1E-6
-                        ing[i] = dt*enc[i]*pca[i]*prey_wgt[i]*0.001/(1 + hand[i]); // ug2mg = 0.001. 
+                                        }
 
-                    } // End prey length loop
+                                    } // End enc_loop
 
-                } // end 'if' to run loop over lengths based on prey length < gape
+                                    pt = pt/n_enc;
 
-            } // end 'else'  based on stomach fullness
+                                    psa[i] = Math.min(1, capt_psa/n_enc);
+                                    pca[i] = Math.min(1, capt_pca/n_enc);
 
-            for (int ik = 0; ik < ing.length; ik++) {  sum_ing += ing[ik]; }
-            stomachFullness += Math.min(1, (stm_sta + sum_ing/(m*0.06))); // gut_size= 0.06
+                                } // end If std_len <= 17. 
+
+                                if(std_len > 17) { //Run as Letcher et al 1996:
+
+                                    double par_a_cs = 1.1*std_len/(0.09*std_len); // pl_max assumed to be 0.09*std_len                                   
+                                    pca[i] = Math.max(0, 1 - (par_a_cs * (prey_len[i]/std_len)));
+
+                                } // end If
+
+                                double omega = Math.sqrt(3.615*Math.pow((eps*visual*0.001), 0.667)); //mm2m = 0.001. Equation 11 in MacKenzie Miller 1994. Is it wrong in TROND?
+                                omega = omega * 1000; // m2mm = 1000. From m/s to mm/s
+
+                                // Equation based on Bradley et al 2013, Figure 6:
+                                prey_normal_speed = prey_len[i]*(1.94*Math.pow(prey_len[i], -1.005)); // this is different from escape velocity
+                                // Figure 2 in Walton 1992:
+                                hand[i] = Math.exp(0.264*Math.pow(10, (7.0151*(prey_len[i]/std_len))));
+                                // See Fiksen and MacKenzie 2002 Equation 1: (the term Math.pow(prey_len[i], 2) is wrong?)
+                                enc[i] = ((0.667*Math.PI*Math.pow(visual,3)*travel + Math.PI*Math.pow(visual,2)*Math.sqrt(Math.pow(prey_normal_speed, 2) + 2*Math.pow(omega,2))*travel*2)*(1*prey_abun[i])*(1 - facCO2*0.05)*1e-6); // tau = 2. MultiplyPrey = 1. ltr2mm3 = 1E-6
+                                ing[i] = dt*enc[i]*pca[i]*(1-facCO2*0.1)*prey_wgt[i]*(1-facCO2*0.05)*0.001/(1 + enc[i]*hand[i]); // ug2mg = 0.001. 
+
+                            } // end visual (eb) else
+
+                            // Here calculate suming and check stomach fullness:
+                            sum_ing += ing[i];
+                            stomachFullness = Math.min(1, (stm_sta + sum_ing/(m*0.06)));
+
+                        }// else in stomachFullness conditional
+
+                    } // second conditional prey_len/fish_len
+
+                } // End prey length loop
+
+            } // end else based on firstCond
 
         } // End prey items loop
 
@@ -482,7 +531,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             // Find weight and width:
             for(int i = 0; i < prey_length.length; i++){ 
                 prey_wgt[i] = par_a*Math.pow(prey_length[i], par_b); // in ug
-                prey_width[i] = prey_length[i]*0.4/1000; // from um to mm
+                prey_width[i] = prey_length[i]*0.3/1000; // from um to mm
             }
 
             double tm = 0;
@@ -509,8 +558,8 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
                 return_array[2][i]=0.75*prey_length[i]*prey_width[i]; // THIS IS PREY AREA: units mm^2
             }
 
-            // TODO: find reference for this number: it is assumed that 50% is carbon in one individual
-            double prey_item_1_ug = (prey_item_totabun_1*1000)*2; // COPEPODS: from mg C/m^3 to ug/m^3
+            // it is assumed that 40% is carbon in one individual
+            double prey_item_1_ug = (prey_item_totabun_1*1000)*2.5; // COPEPODS: from mg C/m^3 to ug/m^3
 
             // Split prey items_ug in size categories:
             for(int i = 0; i < prey_length.length; i++){
@@ -638,7 +687,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     // Mortality function:
 
-    public static double[] TotalMortality(double larval_m, double eb, double attCoeff, double larva_wgt, double suming, double stomachFullness) {
+    public static double[] TotalMortality(double larval_m, double eb, double attCoeff, double larva_wgt, double new_larva_wgt, double suming, double stomachFullness) {
 
         double[] return_mort = new double[2]; // output object
 
@@ -647,13 +696,13 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double em = 5.0E4;
         double visFieldShape = 0.5;
         double fishSwimVel = 0.10;      // Fish cruising velocity (m/s)
-        double aPred = 1.78e-5;
+        double aPred = 2.77e-6; // same as 0.01 h-1 as Kristiansen et al 2014
         double bPred = -1.3;    // 0.78d-5=0.1/3600., -1.3 Parameters for purely size-dependent mortality Fiksen et al. 2002
-        double starvationMortality = 1.0e-6;
-        double setMort = 1;
+        double starvationMortality = 1.0e-7;
+        double setMort = 1; // 
         double ke_predator = 1;
         double fishDens = 0.0001; // fish density (fish/m^3)
-        double deadThreshold = 0.8; // 80%
+        double deadThreshold = 0.75; // 75% based on Letcher et al 1996
         int m2mm = 1000;
         double beamAttCoeff = attCoeff*3;
 
@@ -677,7 +726,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         // Calculate lethal encounter rate with fish setMort is either 0 (off) or 1 (on)
         double fishMortality = setMort*(visFieldShape*Math.PI*Math.pow(visual,2)*fishSwimVel*fishDens);
         double invertebrateMortality = setMort*OtherPred(larval_m, aPred, bPred, m2mm);
-        double starved = AliveOrDead(larva_wgt, larval_m, suming, stomachFullness, deadThreshold, m2mm);
+        double starved = AliveOrDead(larva_wgt, new_larva_wgt, larval_m, suming, stomachFullness, deadThreshold, m2mm);
         double mortality = (invertebrateMortality + fishMortality + starved*starvationMortality);
 
         return_mort[0] = mortality;
@@ -690,141 +739,174 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     public static double OtherPred(double larval_m, double aPred, double bPred, double m2mm){
 
+        // As in Fiksen and Jorgensen 2011:
         double otherPred = aPred*Math.pow(larval_m*m2mm, bPred);
         return otherPred;
 
     }
 
-    public static double AliveOrDead(double larva_wgt, double larval_m, double suming, double stomachFullness, double deadThreshold, double m2mm){
+    public static double AliveOrDead(double larva_wgt, double new_larva_wgt, double larval_m, double suming, double stomachFullness, double deadThreshold, double m2mm){
 
-        double refWeight = getW_fromL(larval_m*m2mm); // get ref wgt in mg
+        // This will NOT work within this code. Do it externally:
+        // 1. Calculate maximum growth at a given time using Hurst et al 2010.
+        // 2. Compare it with current weight. Then decide if psur = 0.
+        double refWeight = larva_wgt; // calculate maximum growth. As in Letcher et al 1996
         double aliveOrDead = 0;
 
-        if ((refWeight > larva_wgt)||((suming < 0.00000001)&&(stomachFullness < 0.0000001))) {
+        if ((suming < 0.00000001)&&(stomachFullness < 0.0000001)) {
             aliveOrDead = 1;
         }
 
-        if (refWeight*deadThreshold > larva_wgt) {
-            // Give a very high probability of death when belowe 80% (deadThreshold)
-            aliveOrDead = 10000;
-        }
+        // if (refWeight*deadThreshold > new_larva_wgt) {
+        //     // Give a very high probability of death when belowe 75% (deadThreshold)
+        //     aliveOrDead = 10000;
+        // }
 
         return aliveOrDead;
 
     }
 
-    public static double[] calculateJuv(double t, double m, double dt, double dtday, double std_len, double eb, double windX, double windY, double depth, double stm_sta, double attCoeff, double eupo, double eups, double ncas, double ncao, double cop, double mzl) {
-        // prey information
-        double npreyitems = 6; // number of prey items
-        double[] zoo_carbon = {eupo, eups, ncas, ncao, cop, mzl}; 
-        double[] par_a = {1.38E-8, 7.83E-9, 9.53E-6, 1E-10, 2.4E-8, 2.63E-6}; 
-        double[] par_b = {2.98, 3.02, 4.034, 3.65, 2.85, 2.23}; 
-        double[] min_len = {12000, 12000, 900, 400, 400, 20}; // minimum length in um
-        double[] dlen = {1600, 1100, 180, 90, 80, 16}; // size bin in um
+    public static double calcCO2(double co2_val){
 
-        // Begin function:
-        double meta = dtday*2.38e-7*Math.exp(0.088*t)*Math.pow(m,0.9); // as in Kristiansen et al 2007. Units: mg/day (without dt). HERE I CHANGED dt FOR dtday 
-        // dtday makes more sense 
+        double outVal = Math.min(1, (1/36314.5)*(Math.exp(co2_val*0.007) - 1)); // 1500 should be the max co2
 
-        if(eb > 0.001) {
-            if(std_len > 5.5){
-                meta *= 2.5;
-            } else {
-                meta *= 1.4;
-            }
-        } 
-
-        double assi = 0.8*(1-0.4*Math.exp(-0.002*(m*1000-50)));// mg2ug=1000 here. No units
-        double r = ((0.454 + 1.610*t - 0.069*t*t)*Math.exp(-6.725*m))/100;// units: 1/day. This is similar to 'g' (1/day) in TROND. 
-        double gr_mg = m*(Math.exp(r*dtday) - 1); // Same as TROND
-
-        // START FORAGING PART:
-        double contrast = 0.3;
-        double em = Math.pow(std_len, 2)/(contrast*0.1*0.2*0.75);
-        double speed_prey = 100.0;
-        double ke_larvae = 1;
-        double beamAttCoeff = attCoeff*3;
-        double ke_predator = 1;
-
-        double[] ing = new double[12];
-        double[] enc = new double[12];
-        double[] hand = new double[12];
-        double[] pca = new double[12];
-        double[] psa = new double[12];
-
-        int n_enc = 10;
-        double eps = (5.82*1e-9*Math.pow(Math.sqrt(Math.pow(windX,2) + Math.pow(windY,2)), 3))/(depth+0.1); // Equation 1 in MacKenzie and Leggett 1993
-        double gape = Math.exp(-3.720 + 1.818*Math.log(std_len) - 0.1219*Math.pow(Math.log(std_len), 2));
-
-        double[] return_vec = new double[5]; // value to Return should be specified here
-        // This is an 2D array of length = 4
-
-        double sum_ing = 0; // sum ingestion 
-        double stomachFullness = 0; // stomach fullness
-
-        prey_item_loop: for(int pit=0; pit<npreyitems; pit++) {
-
-        // Zooplankton per len bin:
-        double[][] out_zoo = null;
-        out_zoo = zooplankton(zoo_carbon[pit], par_a[pit], par_b[pit], min_len[pit], dlen[pit]);
-        double[] prey_len = out_zoo[0]; // in mm per len bin
-        double[] prey_wgt = out_zoo[1]; // in ug per len bin
-        double[] prey_area = out_zoo[2]; // in mm^2 per len bin
-        double[] prey_abun = out_zoo[3]; // in no.ind/L per len bin
-
-        if(stomachFullness >= 1) { // if larva is full, stop loop
-
-            break prey_item_loop;
-
-        } else {
-        
-                if(prey_len[0]*0.4 < gape) { // conditional. if minimum prey width (length*0.4) is larger than gape, so do not run loop
-
-                int ii = prey_area.length; // length of prey_area vector.
-
-                    // Begin loop:
-                    for(int i=0; i<ii; i++){
-
-                        double ier = 0;
-                        double visual = Math.sqrt(em*contrast*prey_area[i]*(eb/(ke_larvae+eb)));
-                        double image = prey_area[i];
-
-                        if(eb < 1E-100) { // Here is the bug I got. When Eb is extremely small, no run the visual estimation algorithm, then visual = 0
-                            visual = 0;
-                        } else {
-                            double[] getr_out = new double[2];
-                            getr_out = getr(visual, beamAttCoeff/1000, contrast, image, em, ke_larvae, eb, ier); // m2mm = 1000
-                            visual = getr_out[1]; // 0 = new ier, 1 = new 'visual' value after getr
-                        }
-
-                        // Prey velocity:
-                        double w = speed_prey*prey_len[i]; // prey escape velocity
-
-                        // Equation 3 in Walton 1992. Parametrized differently: Assuming pca = 1 (always capture prey)
-                        hand[i] = 0.264*Math.pow(10, (7.0151*(prey_len[i]/std_len)));
-                        // See Fall and Fiksen 2019:
-                        enc[i] = Math.PI*Math.pow(visual*Math.sin(Math.toRadians(30)), 2)*w*(1*prey_abun[i])*1e-6; // units: N prey/s
-                        ing[i] = dt*enc[i]*prey_wgt[i]*0.001/(1 + hand[i]); // ug2mg = 0.001. 
-
-                    } // End prey length loop
-
-                } // end 'if' to run loop over lengths based on prey length < gape
-
-            } // end 'else'  based on stomach fullness
-
-            for (int ik = 0; ik < ing.length; ik++) {  sum_ing += ing[ik]; }
-            stomachFullness += Math.min(1, (stm_sta + sum_ing/(m*0.06))); // gut_size= 0.06
-
-        } // End prey items loop
-
-        return_vec[0] = gr_mg; // same as TROND
-        return_vec[1] = meta; // metabolism
-        return_vec[2] = sum_ing;
-        return_vec[3] = assi;
-        return_vec[4] = stomachFullness;
-        return return_vec;
+        return outVal;
 
     }
+
+    // public static double[] calculateJuv(double t, double m, double dt, double dtday, double std_len, double eb, double windX, double windY, double depth, double stm_sta, double attCoeff, double eupo, double eups, double ncas, double ncao, double cop, double mzl) {
+    //     // prey information
+    //     double npreyitems = 6; // number of prey items
+    //     double[] zoo_carbon = {eupo, eups, ncas, ncao, cop, mzl}; 
+    //     double[] par_a = {1.38E-8, 7.83E-9, 2.75E-12, 1E-10, 2.4E-8, 2.63E-6}; 
+    //     double[] par_b = {2.92, 3.02, 4.03, 3.56, 2.85, 2.23}; 
+    //     double[] min_len = {12000, 12000, 900, 400, 400, 20}; // minimum length in um
+    //     double[] dlen = {1600, 1100, 180, 90, 80, 16}; // size bin in um
+
+    //     // Begin function:
+    //     double meta = dtday*2.38e-7*Math.exp(0.088*t)*Math.pow(m,0.9); // as in Kristiansen et al 2007. Units: mg/day (without dt). HERE I CHANGED dt FOR dtday 
+    //     // dtday makes more sense 
+
+    //     if(eb > 0.001) {
+    //         if(std_len > 5.5){
+    //             meta *= 2.5;
+    //         } else {
+    //             meta *= 1.4;
+    //         }
+    //     } 
+
+    //     double assi = 0.8*(1-0.4*Math.exp(-0.002*(m*1000-50)));// mg2ug=1000 here. No units
+    //     double r = ((0.454 + 1.610*t - 0.069*t*t)*Math.exp(-6.725*m))/100;// units: 1/day. This is similar to 'g' (1/day) in TROND. 
+    //     double gr_mg = m*(Math.exp(r*dtday) - 1); // Same as TROND
+
+    //     // START FORAGING PART:
+    //     double contrast = 0.3;
+    //     double em = Math.pow(std_len, 2)/(contrast*0.1*0.2*0.75);
+    //     double speed_prey = 100.0;
+    //     double speed_fish = 10.0;
+    //     double va = speed_fish*std_len;
+    //     double ke_larvae = 1;
+    //     double beamAttCoeff = attCoeff*3;
+    //     double ke_predator = 1;
+
+    //     double[] ing = new double[12];
+    //     double[] enc = new double[12];
+    //     double[] hand = new double[12];
+    //     double[] pca = new double[12];
+    //     double[] psa = new double[12];
+    //     double capt_prob = 0;
+    //     double w = 0;
+
+    //     int n_enc = 10;
+    //     double eps = (5.82*1e-9*Math.pow(Math.sqrt(Math.pow(windX,2) + Math.pow(windY,2)), 3))/(depth+0.1); // Equation 1 in MacKenzie and Leggett 1993
+    //     double gape = Math.exp(-3.720 + 1.818*Math.log(std_len) - 0.1219*Math.pow(Math.log(std_len), 2));
+
+    //     double[] return_vec = new double[5]; // value to Return should be specified here
+    //     // This is an 2D array of length = 4
+
+    //     double sum_ing = 0; // sum ingestion 
+    //     double stomachFullness = 0; // stomach fullness
+    //     double firstCond = 0;
+    //     double w_tmp = 0;
+
+    //     prey_item_loop: for(int pit=0; pit<npreyitems; pit++) {
+
+    //         // Zooplankton per len bin:
+    //         double[][] out_zoo = null;
+    //         out_zoo = zooplankton(zoo_carbon[pit], par_a[pit], par_b[pit], min_len[pit], dlen[pit]);
+    //         double[] prey_len = out_zoo[0]; // in mm per len bin
+    //         double[] prey_wgt = out_zoo[1]; // in ug per len bin
+    //         double[] prey_area = out_zoo[2]; // in mm^2 per len bin
+    //         double[] prey_abun = out_zoo[3]; // in no.ind/L per len bin
+
+    //         w_tmp = speed_prey*prey_len[0]; // prey escape velocity
+    //         firstCond = Math.max(0, Math.pow(1-((prey_len[0]*w_tmp)/(std_len*va)), 3)); // use capture probability instad of PCA for juveniles
+
+    //         if(firstCond == 0) { // conditional. 
+
+    //             continue prey_item_loop;
+
+    //         } else {
+
+    //         int ii = prey_area.length; // length of prey_area vector.
+
+    //             // Begin loop:
+    //             for(int i = ii-1; i>= 0; i--){
+
+    //             // Prey velocity:
+    //             w = speed_prey*prey_len[i]; // prey escape velocity
+
+    //                 if(stomachFullness == 1) {
+
+    //                     break prey_item_loop;
+
+    //                 } else {
+
+    //                     double ier = 0;
+    //                     double visual = Math.sqrt(em*contrast*prey_area[i]*(eb/(ke_larvae+eb)));
+    //                     double image = prey_area[i];
+
+    //                     if(eb < 1E-50) { // Here is the bug I got. When Eb is extremely small, no run the visual estimation algorithm, then visual = 0
+
+    //                         visual = 0;
+    //                         ing[i] = 0; // no ingestion in dark environments
+
+    //                     } else {
+
+    //                         double[] getr_out = new double[2];
+    //                         getr_out = getr(visual, beamAttCoeff/1000, contrast, image, em, ke_larvae, eb, ier); // m2mm = 1000
+    //                         visual = getr_out[1]; // 0 = new ier, 1 = new 'visual' value after getr
+
+    //                         // Figure 2 in Walton 1992. 
+    //                         hand[i] = Math.exp(0.264*Math.pow(10, (7.0151*(prey_len[i]/std_len))));
+    //                         // See Fall and Fiksen 2019:
+    //                         //capt_prob = Math.max(0, Math.pow(1-((prey_len[i]*w)/(std_len*va)), 3)); // use capture probability instad of PCA for juveniles
+    //                         capt_prob = Math.max(0, Math.pow(1-((prey_len[i]*w)/(std_len*va)), 3));
+    //                         enc[i] = Math.PI*Math.pow(visual*Math.sin(Math.toRadians(30)), 2)*w*(1*prey_abun[i])*1e-6; // units: N prey/s
+    //                         // This equation is similar to Ware 1975:
+    //                         ing[i] = dt*enc[i]*capt_prob*prey_wgt[i]*0.001/(1 + hand[i]); // ug2mg = 0.001. 
+
+    //                     } // visual else
+
+    //                     sum_ing += ing[i];
+    //                     stomachFullness = Math.min(1, (stm_sta + sum_ing/(m*0.06)));
+
+    //                 } // else stomachFullness
+
+    //             } // End prey length loop
+
+    //         } // end 'if' to run loop over lengths based on prey length < gape
+
+    //     } // End prey items loop
+
+    //     return_vec[0] = gr_mg; // same as TROND
+    //     return_vec[1] = meta; // metabolism
+    //     return_vec[2] = sum_ing;
+    //     return_vec[3] = assi;
+    //     return_vec[4] = stomachFullness;
+    //     return return_vec;
+
+    // }
    
 }
 

@@ -85,6 +85,10 @@ public class EpijuvStage extends AbstractLHS {
     private static final String Su = "Su";
     /* string identifying environmental field with v surface stress */
     private static final String Sv = "Sv";
+    /* string identifying environmental field with u surface stress */
+    private static final String pCO2 = "pCO2";
+    /* string identifying environmental field with v surface stress */
+    private static final String Mzs = "Mzs";
     
     //Instance fields
             //  Fields hiding ones from superclass
@@ -352,7 +356,8 @@ public class EpijuvStage extends AbstractLHS {
             //need to set: tot_len, wet_wgt, grTL, grWW
             std_len = atts.getValue(EpijuvStageAttributes.PROP_SL, std_len);
             dry_wgt = atts.getValue(EpijuvStageAttributes.PROP_DW, dry_wgt);
-            tot_len = (Double) fcnSLtoTL.calculate((Double) std_len);
+            // tot_len = (Double) fcnSLtoTL.calculate((Double) std_len);
+            tot_len = std_len*1.05;
             wet_wgt = (Double) fcnSLtoWW.calculate((Double) std_len);
             atts.setValue(EpijuvStageAttributes.PROP_TL,tot_len);
             atts.setValue(EpijuvStageAttributes.PROP_WW,wet_wgt);
@@ -725,14 +730,16 @@ public class EpijuvStage extends AbstractLHS {
         neocalanus = i3d.interpolateValue(pos,FIELD_NCa,Interpolator3D.INTERP_VAL);
         double neocalanus_shelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
         double euphausiids_shelf  = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
-        double microzoo  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
+        double microzoo_large  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
         double tauX = i3d.interpolateValue(pos2d,Su,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double tauY = i3d.interpolateValue(pos2d,Sv,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4
-
+        double microzoo_small  = i3d.interpolateValue(pos,Mzs,Interpolator3D.INTERP_VAL);
+        double microzoo = microzoo_small + microzoo_large; // total microzooplankton
+        double pCO2_conc  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
                 
         double[] uvw = calcUVW(pos,dt,T);//this also sets "attached" and may change pos[2] to 0
         if (attached){
@@ -763,7 +770,7 @@ public class EpijuvStage extends AbstractLHS {
         double dtday = dt/86400;        //dt=biolmodel time step. At 72/day, dt(sec)= 1200; dtday=0.014
 
         // Create objects for output of BIOEN:
-        double[] bioEN_output = new double[5]; // output object of BIOEN calculation
+        Double[] bioEN_output = null; // output object of BIOEN calculation
         double gr_mg_fac = 0; // factor to avoid dry_wgt in IF 
         double meta = 0;
         double sum_ing = 0;
@@ -813,7 +820,7 @@ public class EpijuvStage extends AbstractLHS {
             // Turbulence and wind (end)
 
             // Bioenergetic growth calculation:
-            bioEN_output = IBMFunction_NonEggStageBIOENGrowthRateDW.calculateJuv(T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],euphausiid,euphausiids_shelf,neocalanus_shelf,neocalanus,copepod,microzoo); //should length be at t or t-1?
+            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],neocalanus_shelf,neocalanus,copepod,microzoo,pCO2_conc}); //should length be at t or t-1?
             grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
             meta = bioEN_output[1];
             sum_ing = bioEN_output[2];
@@ -845,26 +852,20 @@ public class EpijuvStage extends AbstractLHS {
 
         wet_wgt *= Math.exp(grWW * dtday); // This values does not matter
         
+        // Survival rate (begin):
+        double[] mort_out = new double[2]; // for mortality output
+        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+        // mort_out[0] = mortality. mort_out[1] = starved
+        if(mort_out[1] > 1000) {
+            psurvival = 0;
+        } else {
+            psurvival = psurvival*Math.exp(-dt*mort_out[0]);
+        }
+        // Survival rate (end):
+
         updatePosition(pos);
         updateEnvVars(pos);
-        // updateNum(dt);
-
-        // New Mortality:
-        // TODO: adapt this to a new mortality function:
-        if (typeGrDW==EpijuvStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
-
-            double[] mort_out = new double[2]; // for mortality output
-            mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
-            // mort_out[0] = mortality. mort_out[1] = starved
-            if(mort_out[1] > 1000) {
-                psurvival = 0;
-            } else {
-                psurvival = psurvival*Math.exp(-dt*mort_out[0]);
-            }
-        number = number*psurvival;
-
-        }
-
+        updateNum(dt);
         updateAge(dt);
         
         //check for exiting grid
@@ -1207,8 +1208,8 @@ public class EpijuvStage extends AbstractLHS {
         grTL        = atts.getValue(EpijuvStageAttributes.PROP_grTL,        grTL);
         grWW        = atts.getValue(EpijuvStageAttributes.PROP_grWW,        grWW);
         hsi         = atts.getValue(EpijuvStageAttributes.PROP_hsi,         hsi);
-        stmsta      = atts.getValue(EpijuvStageAttributes.PROP_stmsta,stmsta);
-        psurvival    = atts.getValue(EpijuvStageAttributes.PROP_psurvival,psurvival);
+        stmsta      = atts.getValue(EpijuvStageAttributes.PROP_stmsta,      stmsta);
+        psurvival    = atts.getValue(EpijuvStageAttributes.PROP_psurvival,  psurvival);
     }
 
 }

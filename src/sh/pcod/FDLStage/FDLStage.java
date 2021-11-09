@@ -79,6 +79,10 @@ public class FDLStage extends AbstractLHS {
     private static final String Su = "Su";
     /* string identifying environmental field with v surface stress */
     private static final String Sv = "Sv";
+    /* string identifying environmental field with u surface stress */
+    private static final String pCO2 = "pCO2";
+    /* string identifying environmental field with v surface stress */
+    private static final String Mzs = "Mzs";
 
     //Instance fields
             //  Fields hiding ones from superclass
@@ -664,13 +668,16 @@ public class FDLStage extends AbstractLHS {
         neocalanus = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
         double neocalanus_shelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
         double euphausiids_shelf  = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
-        double microzoo  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
+        double microzoo_large  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
         double tauX = i3d.interpolateValue(pos2d,Su,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double tauY = i3d.interpolateValue(pos2d,Sv,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4
+        double microzoo_small  = i3d.interpolateValue(pos,Mzs,Interpolator3D.INTERP_VAL);
+        double microzoo = microzoo_small + microzoo_large; // total microzooplankton
+        double pCO2_conc  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
 
         double[] uvw = calcUVW(pos,dt);//this also sets "attached" and may change pos[2] to 0
         //PRINT UVW
@@ -757,7 +764,7 @@ public class FDLStage extends AbstractLHS {
             // Turbulence and wind (end)
 
             // Bioenergetic growth calculation:
-            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],euphausiid,euphausiids_shelf,neocalanus_shelf,neocalanus,copepod,microzoo}); //should length be at t or t-1?
+            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],neocalanus_shelf,neocalanus,copepod,microzoo,pCO2_conc}); //should length be at t or t-1?
             grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
             meta = bioEN_output[1];
             sum_ing = bioEN_output[2];
@@ -767,7 +774,7 @@ public class FDLStage extends AbstractLHS {
             double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
 
             // Update values:
-            stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
+            stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. 
             gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
             
             // new weight in mg:
@@ -782,26 +789,20 @@ public class FDLStage extends AbstractLHS {
 
         }
 
+        // Survival rate (begin):
+        double[] mort_out = new double[2]; // for mortality output
+        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+        // mort_out[0] = mortality. mort_out[1] = starved
+        if(mort_out[1] > 1000) {
+            psurvival = 0;
+        } else {
+            psurvival = psurvival*Math.exp(-dt*mort_out[0]);
+        }
+        // Survival rate (end):
+
         // END OF BIOEN CHANGES ------------------------------------
 
-        // updateNum(dt);
-
-        // New Mortality:
-        // TODO: adapt this to a new mortality function:
-        if (typeGrDW==FDLStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate) {
-
-            double[] mort_out = new double[2]; // for mortality output
-            mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
-            // mort_out[0] = mortality. mort_out[1] = starved
-            if(mort_out[1] > 1000) {
-                psurvival = 0;
-            } else {
-                psurvival = psurvival*Math.exp(-dt*mort_out[0]);
-            }
-        number = number*psurvival;
-
-        }
-
+        updateNum(dt);
         updateAge(dt);
         updatePosition(pos);
         interpolateEnvVars(pos);
