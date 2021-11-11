@@ -778,6 +778,8 @@ public class EpijuvStage extends AbstractLHS {
         double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double old_std_len = std_len;
+        double avgRank = 0;
+        double avgSize = 0;
         // Light (begin):
         // create object for light calculation:
         double[] eb2 = new double[2]; // K parameter + second part of Eb equation
@@ -826,6 +828,8 @@ public class EpijuvStage extends AbstractLHS {
             sum_ing = bioEN_output[2];
             assi = bioEN_output[3];
             stomachFullness = bioEN_output[4];
+            avgRank = bioEN_output[5];
+            avgSize = bioEN_output[6];
             double costRateOfMetabolism = 0.5; // check this number
             double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
 
@@ -846,6 +850,9 @@ public class EpijuvStage extends AbstractLHS {
             tot_len = std_len*1.05; // Just multiply by a factor, TODO: discuss this later
 
         }
+
+        grSL = avgRank;
+        grDW = avgSize;
 
         if (typeGrWW==EpijuvStageParameters.FCN_GrWW_Epijuv_GrowthRate)
             grWW = (Double) fcnGrWW.calculate(T);

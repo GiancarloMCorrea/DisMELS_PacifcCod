@@ -790,6 +790,8 @@ public class YSLStage extends AbstractLHS {
         double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double old_std_len = std_len;
+        double avgRank = 0;
+        double avgSize = 0;
         // Light (begin):
         // create object for light calculation:
         double eb = 0; // create Eb object
@@ -912,6 +914,8 @@ public class YSLStage extends AbstractLHS {
                     sum_ing = bioEN_output[2];
                     assi = bioEN_output[3];
                     stomachFullness = bioEN_output[4];
+                    avgRank = bioEN_output[5];
+                    avgSize = bioEN_output[6];
                     activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
 
                     // Update values:
@@ -935,7 +939,10 @@ public class YSLStage extends AbstractLHS {
             }
 
         }
-          
+        
+        grSL = avgRank;
+        grDW = avgSize;
+
         // Survival rate (begin):
         double[] mort_out = new double[2]; // for mortality output
         mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
