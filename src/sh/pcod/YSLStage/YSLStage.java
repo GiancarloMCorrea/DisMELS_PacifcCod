@@ -125,6 +125,16 @@ public class YSLStage extends AbstractLHS {
     protected double stmsta = 0; // Here initial value of stomach state. 
     /** stomach state (units) */
     protected double psurvival = 1; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double mortfish = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double mortinv = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double avgRank = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double avgSize = 0; // Here initial value of p_survival
+    /** in situ pCO2 */
+    protected double pCO2val = 0;
     /** growth rate for standard length (mm/d) */
     protected double grSL = 0;
     /** growth rate for dry weight (1/d) */
@@ -139,8 +149,14 @@ public class YSLStage extends AbstractLHS {
     protected double copepods = 0;
      /** in situ euphausiid density (mg/m^3, dry wt) */
     protected double euphausiids = 0;
+     /** in situ euphausiid density (mg/m^3, dry wt) */
+    protected double euphausiidsShelf = 0;
      /** in situ neocalanoid density (mg/m^3, dry wt) */
     protected double neocalanus = 0;
+     /** in situ neocalanoid density (mg/m^3, dry wt) */
+    protected double microzoo = 0;
+     /** in situ neocalanoid density (mg/m^3, dry wt) */
+    protected double neocalanusShelf = 0;
     /** integrated criterion for yolk-sac absorption */
     protected double progYSA = 0;
     /** integrated criterion for point-of-no return */
@@ -368,7 +384,12 @@ public class YSLStage extends AbstractLHS {
             atts.setValue(YSLStageAttributes.PROP_DW,DW);
             double stmsta_2 = 0.3*0.06*DW; // stomach_threshold*gut_size*weight. just a placeholder. start value when progYSA>=1.0
             atts.setValue(YSLStageAttributes.PROP_stmsta,stmsta_2);   
-            atts.setValue(YSLStageAttributes.PROP_psurvival,psurvival);                                   
+            atts.setValue(YSLStageAttributes.PROP_psurvival,psurvival);  
+            atts.setValue(YSLStageAttributes.PROP_mortfish,mortfish);  
+            atts.setValue(YSLStageAttributes.PROP_mortinv,mortinv);  
+            atts.setValue(YSLStageAttributes.PROP_avgRank,avgRank);  
+            atts.setValue(YSLStageAttributes.PROP_avgSize,avgSize);  
+            atts.setValue(YSLStageAttributes.PROP_pCO2val,pCO2val);                                                                    
             atts.setValue(YSLStageAttributes.PROP_grSL,oldAtts.getValue(EggStageAttributes.PROP_grSL, grSL));
             atts.setValue(YSLStageAttributes.PROP_grDW,oldAtts.getValue(EggStageAttributes.PROP_grDW, grDW));
             //need to set attributes NOT included in EggStageAttributes
@@ -376,10 +397,18 @@ public class YSLStage extends AbstractLHS {
             double[] pos = lp.getIJK();
             copepods    = i3d.interpolateValue(pos,Cop,Interpolator3D.INTERP_VAL);
             euphausiids = i3d.interpolateValue(pos,Eup,Interpolator3D.INTERP_VAL);
+            euphausiidsShelf = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
             neocalanus  = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
+            neocalanusShelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
+            double microzoo_large  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
+            double microzoo_small  = i3d.interpolateValue(pos,Mzs,Interpolator3D.INTERP_VAL);
+            microzoo  = microzoo_large + microzoo_small;
             atts.setValue(YSLStageAttributes.PROP_copepod,copepods);
             atts.setValue(YSLStageAttributes.PROP_euphausiid,euphausiids);
+            atts.setValue(YSLStageAttributes.PROP_euphausiidShelf,euphausiidsShelf);
             atts.setValue(YSLStageAttributes.PROP_neocalanus,neocalanus);
+            atts.setValue(YSLStageAttributes.PROP_neocalanusShelf,neocalanusShelf);
+            atts.setValue(YSLStageAttributes.PROP_microzoo,microzoo);
             //set the following attributes to initial values 
             atts.setValue(YSLStageAttributes.PROP_progYSA,progYSA);
             atts.setValue(YSLStageAttributes.PROP_progPNR,progPNR);
@@ -729,9 +758,9 @@ public class YSLStage extends AbstractLHS {
       //SH-Prey Stuff  
         copepods    = i3d.interpolateValue(pos,Cop,Interpolator3D.INTERP_VAL);
         euphausiids = i3d.interpolateValue(pos,Eup,Interpolator3D.INTERP_VAL);
+        euphausiidsShelf = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
         neocalanus  = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
-        double neocalanus_shelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
-        double euphausiids_shelf  = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
+        neocalanusShelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
         double microzoo_large  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
@@ -740,9 +769,23 @@ public class YSLStage extends AbstractLHS {
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4        
         double microzoo_small  = i3d.interpolateValue(pos,Mzs,Interpolator3D.INTERP_VAL);
-        double microzoo = microzoo_small + microzoo_large; // total microzooplankton
-        double pCO2_conc  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
-        double facCO2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcCO2(pCO2_conc);
+        microzoo = microzoo_small + microzoo_large; // total microzooplankton
+        pCO2val  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
+        //calculate pco2 factor:
+        double facCO2 = 0;
+        if(pCO2val > 600) { // only for values larger than 600
+            facCO2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcCO2(pCO2val);
+        } 
+
+        // Delete negative (imposible) values:
+        if(chlorophyll<0.0) chlorophyll=0; 
+        if(copepods<0.0) copepods=0; 
+        if(euphausiids<0.0) euphausiids=0; 
+        if(euphausiidsShelf<0.0) euphausiidsShelf=0; 
+        if(neocalanus<0.0) neocalanus=0; 
+        if(neocalanusShelf<0.0) neocalanusShelf=0; 
+        if(microzoo<0.0) microzoo=0; 
+
 
         double[] res = calcW(pos,dt);//calc w and attached indicator
         double w     = Math.signum(dt)*res[0];
@@ -790,8 +833,6 @@ public class YSLStage extends AbstractLHS {
         double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double old_std_len = std_len;
-        double avgRank = 0;
-        double avgSize = 0;
         // Light (begin):
         // create object for light calculation:
         double eb = 0; // create Eb object
@@ -858,6 +899,13 @@ public class YSLStage extends AbstractLHS {
                 }
 
                 meta = dtday*2.38e-7*Math.exp(0.088*T)*Math.pow(dry_wgt,0.9)*(1 + facCO2*0.1);
+                if(eb > 0.001) {
+                    if(std_len > 5.5){
+                        meta *= 2.5;
+                    } else {
+                        meta *= 1.4;
+                    }
+                } 
                 activityCost = 0.5*meta*costRateOfMetabolism;
                 gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
                 stmsta = 0.3*0.06*dry_wgt; // just a placeholder. start value when progYSA>=1.0
@@ -908,7 +956,7 @@ public class YSLStage extends AbstractLHS {
                     // Turbulence and wind (end)
 
                     // Bioenergetic growth calculation:
-                    bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],neocalanus_shelf,neocalanus,copepods,microzoo,pCO2_conc}); //should length be at t or t-1?
+                    bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],euphausiids,euphausiidsShelf,neocalanusShelf,neocalanus,copepods,microzoo,pCO2val}); //should length be at t or t-1?
                     grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
                     meta = bioEN_output[1];
                     sum_ing = bioEN_output[2];
@@ -916,7 +964,7 @@ public class YSLStage extends AbstractLHS {
                     stomachFullness = bioEN_output[4];
                     avgRank = bioEN_output[5];
                     avgSize = bioEN_output[6];
-                    activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
+                    activityCost = 1*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
 
                     // Update values:
                     stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
@@ -940,12 +988,12 @@ public class YSLStage extends AbstractLHS {
 
         }
         
-        grSL = avgRank;
-        grDW = avgSize;
 
         // Survival rate (begin):
-        double[] mort_out = new double[2]; // for mortality output
+        double[] mort_out = new double[4]; // for mortality output
         mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+        mortfish = mort_out[2];
+        mortinv = mort_out[3];
         // mort_out[0] = mortality. mort_out[1] = starved
         if(mort_out[1] > 1000) {
             psurvival = 0;
@@ -1201,6 +1249,11 @@ public class YSLStage extends AbstractLHS {
         atts.setValue(YSLStageAttributes.PROP_DW,dry_wgt);
         atts.setValue(YSLStageAttributes.PROP_stmsta,stmsta);
         atts.setValue(YSLStageAttributes.PROP_psurvival,psurvival);
+        atts.setValue(YSLStageAttributes.PROP_mortfish,mortfish);
+        atts.setValue(YSLStageAttributes.PROP_mortinv,mortinv);
+        atts.setValue(YSLStageAttributes.PROP_avgRank,avgRank);
+        atts.setValue(YSLStageAttributes.PROP_avgSize,avgSize);
+        atts.setValue(YSLStageAttributes.PROP_pCO2val,pCO2val);
         atts.setValue(YSLStageAttributes.PROP_grSL,grSL);
         atts.setValue(YSLStageAttributes.PROP_grDW,grDW);
         atts.setValue(YSLStageAttributes.PROP_temperature,temperature);
@@ -1208,7 +1261,10 @@ public class YSLStage extends AbstractLHS {
         atts.setValue(YSLStageAttributes.PROP_rho,rho);
         atts.setValue(YSLStageAttributes.PROP_copepod,copepods);
         atts.setValue(YSLStageAttributes.PROP_euphausiid,euphausiids);
+        atts.setValue(YSLStageAttributes.PROP_euphausiidShelf,euphausiidsShelf);
         atts.setValue(YSLStageAttributes.PROP_neocalanus,neocalanus);
+        atts.setValue(YSLStageAttributes.PROP_neocalanusShelf,neocalanusShelf);
+        atts.setValue(YSLStageAttributes.PROP_microzoo,microzoo);
         atts.setValue(YSLStageAttributes.PROP_progYSA,progYSA);
         atts.setValue(YSLStageAttributes.PROP_progPNR,progPNR);
         atts.setValue(YSLStageAttributes.PROP_prNotFed,prNotFed);
@@ -1225,6 +1281,11 @@ public class YSLStage extends AbstractLHS {
         dry_wgt     = atts.getValue(YSLStageAttributes.PROP_DW,dry_wgt);
         stmsta    = atts.getValue(YSLStageAttributes.PROP_stmsta,stmsta); 
         psurvival    = atts.getValue(YSLStageAttributes.PROP_psurvival,psurvival);   
+        mortfish    = atts.getValue(YSLStageAttributes.PROP_mortfish,mortfish);   
+        mortinv    = atts.getValue(YSLStageAttributes.PROP_mortinv,mortinv);   
+        avgRank    = atts.getValue(YSLStageAttributes.PROP_avgRank,avgRank);   
+        avgSize    = atts.getValue(YSLStageAttributes.PROP_avgSize,avgSize);   
+        pCO2val    = atts.getValue(YSLStageAttributes.PROP_pCO2val,pCO2val);   
         grSL        = atts.getValue(YSLStageAttributes.PROP_grSL,grSL); 
         grDW        = atts.getValue(YSLStageAttributes.PROP_grDW,grDW); 
         temperature = atts.getValue(YSLStageAttributes.PROP_temperature,temperature);
@@ -1232,7 +1293,10 @@ public class YSLStage extends AbstractLHS {
         rho         = atts.getValue(YSLStageAttributes.PROP_rho,rho);
         copepods    = atts.getValue(YSLStageAttributes.PROP_copepod,copepods);
         euphausiids = atts.getValue(YSLStageAttributes.PROP_euphausiid,euphausiids);
+        euphausiidsShelf = atts.getValue(YSLStageAttributes.PROP_euphausiidShelf,euphausiidsShelf);
         neocalanus  = atts.getValue(YSLStageAttributes.PROP_neocalanus,neocalanus);
+        neocalanusShelf = atts.getValue(YSLStageAttributes.PROP_neocalanusShelf,neocalanusShelf);
+        microzoo  = atts.getValue(YSLStageAttributes.PROP_microzoo,microzoo);
         progYSA     = atts.getValue(YSLStageAttributes.PROP_progYSA,progYSA); 
         progPNR     = atts.getValue(YSLStageAttributes.PROP_progPNR,progPNR); 
         prNotFed    = atts.getValue(YSLStageAttributes.PROP_prNotFed,prNotFed); 

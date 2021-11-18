@@ -27,12 +27,17 @@ import wts.models.DisMELS.framework.IBMAttributes.IBMAttributeDouble;
 public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
     
     /** Number of new attributes defined by this class */
-    public static final int numNewAttributes = 13;
+    public static final int numNewAttributes = 21;
     public static final String PROP_attached    = "attached";
     public static final String PROP_SL          = "standard length (mm)";
     public static final String PROP_DW          = "dry weight (mg)";
     public static final String PROP_stmsta      = "stomach state (units)";
     public static final String PROP_psurvival   = "survival probability";
+    public static final String PROP_mortfish   = "mortality fish predation";
+    public static final String PROP_mortinv   = "mortality invertebrates";
+    public static final String PROP_avgRank   = "average rank in diet";
+    public static final String PROP_avgSize   = "average size in diet";
+    public static final String PROP_pCO2val    = "pCO2 concentration";
     public static final String PROP_grSL        = "growth rate for SL (mm/d)";
     public static final String PROP_grDW        = "growth rate for DW (1/d)";
     public static final String PROP_temperature = "temperature deg C";
@@ -40,8 +45,11 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
     public static final String PROP_rho         = "in situ density";
     public static final String PROP_copepod     = "Small copepods mg/m^3 dry wt C";
     public static final String PROP_neocalanus  = "Neocalanoids mg/m^3 dry wt";
+    public static final String PROP_euphausiidShelf  = "Euphausiids Shelf mg/m^3 dry wt C";
     public static final String PROP_euphausiid  = "Euphausiids mg/m^3 dry wt C";
-    
+    public static final String PROP_neocalanusShelf  = "Neocalanoids Shelf mg/m^3 dry wt";
+    public static final String PROP_microzoo  = "Microzooplankton mg/m^3 dry wt C";
+
     /** these fields HIDE static fields from superclass and should incorporate ALL information from superclasses */
     protected static final int numAttributes = AbstractLHSAttributes.numAttributes+numNewAttributes;
     protected static final Set<String> keys = new LinkedHashSet<>(2*numAttributes);
@@ -87,6 +95,11 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
             key = PROP_DW;         keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"DW"));
             key = PROP_stmsta;     keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"stmsta"));
             key = PROP_psurvival;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"psurvival"));
+            key = PROP_mortfish;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"mortfish"));
+            key = PROP_mortinv;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"mortinv"));
+            key = PROP_avgRank;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"avgRank"));
+            key = PROP_avgSize;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"avgSize"));          
+            key = PROP_pCO2val;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"pCO2val"));
             key = PROP_grSL;       keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"grSL"));
             key = PROP_grDW;       keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"grDW"));
             key = PROP_temperature;keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"temp"));
@@ -94,8 +107,11 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
             key = PROP_rho;        keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"rho"));
             key = PROP_copepod;    keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"copepod"));
             key = PROP_euphausiid; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"euphausiid"));
+            key = PROP_euphausiidShelf; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"euphausiidShelf"));
             key = PROP_neocalanus; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"neocalanus"));
-            
+            key = PROP_neocalanusShelf; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"neocalanusShelf"));
+            key = PROP_microzoo; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"microzoo"));
+
             Iterator<String> it = keys.iterator();
             int j = 0; it.next();//skip typeName
             while (it.hasNext()) aKeys[j++] = it.next();
@@ -108,6 +124,11 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
         tmpMapValues.put(PROP_DW,         new Double(0));
         tmpMapValues.put(PROP_stmsta,     new Double(0));
         tmpMapValues.put(PROP_psurvival,  new Double(1));
+        tmpMapValues.put(PROP_mortfish,  new Double(1));
+        tmpMapValues.put(PROP_mortinv,  new Double(1));
+        tmpMapValues.put(PROP_avgRank,  new Double(1));
+        tmpMapValues.put(PROP_avgSize,  new Double(1));
+        tmpMapValues.put(PROP_pCO2val,    new Double(0));
         tmpMapValues.put(PROP_grSL,       new Double(0));
         tmpMapValues.put(PROP_grDW,       new Double(0));
         tmpMapValues.put(PROP_temperature,new Double(-1));
@@ -115,7 +136,10 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
         tmpMapValues.put(PROP_rho,        new Double(-1));
         tmpMapValues.put(PROP_copepod,    new Double(-1));
         tmpMapValues.put(PROP_euphausiid, new Double(-1));
+        tmpMapValues.put(PROP_euphausiidShelf, new Double(-1));
         tmpMapValues.put(PROP_neocalanus, new Double(-1));
+        tmpMapValues.put(PROP_neocalanusShelf, new Double(-1));
+        tmpMapValues.put(PROP_microzoo, new Double(-1));
         mapValues = tmpMapValues;//assign to super
     }
 

@@ -113,6 +113,20 @@ public class BenthicJuvStage extends AbstractLHS {
     protected double std_len = 0;
     /** dry weight (mg) */
     protected double dry_wgt = 0;
+    /** stomach state (units) */
+    protected double stmsta = 0;
+    /** stomach state (units) */
+    protected double psurvival = 1;
+    /** stomach state (units) */
+    protected double mortfish = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double mortinv = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double avgRank = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double avgSize = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double pCO2val = 0;
     /** growth rate for standard length (mm/d) */
     protected double grSL = 0;
     /** growth rate for dry weight (1/d) */
@@ -129,6 +143,10 @@ public class BenthicJuvStage extends AbstractLHS {
     protected double euphausiid = 0;
      /** in situ neocalanoid (large copepods) density (mg/m^3, dry wt) */
     protected double neocalanus = 0;
+     /** in situ neocalanoid (large copepods) density (mg/m^3, dry wt) */
+    protected double neocalanusShelf = 0;
+     /** in situ neocalanoid (large copepods) density (mg/m^3, dry wt) */
+    protected double microzoo = 0;
     /** total length (mm) */
     protected double tot_len = 0;
     /** wet weight (mg) */
@@ -139,10 +157,6 @@ public class BenthicJuvStage extends AbstractLHS {
     protected double grWW = 0;
     /** habitat suitability index value */
     protected double hsi = 0;
-    /** stomach state (units) */
-    protected double stmsta = 0;
-    /** stomach state (units) */
-    protected double psurvival = 1;
         
             //other fields
     /** number of individuals transitioning to next stage */
@@ -691,7 +705,7 @@ public class BenthicJuvStage extends AbstractLHS {
         copepod    = i3d.interpolateValue(pos,FIELD_Cop,Interpolator3D.INTERP_VAL);
         euphausiid = i3d.interpolateValue(pos,FIELD_Eup,Interpolator3D.INTERP_VAL);
         neocalanus = i3d.interpolateValue(pos,FIELD_NCa,Interpolator3D.INTERP_VAL);
-        double neocalanus_shelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
+        neocalanusShelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
         double euphausiids_shelf  = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
         double microzoo_large  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
@@ -701,23 +715,23 @@ public class BenthicJuvStage extends AbstractLHS {
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4
         double microzoo_small  = i3d.interpolateValue(pos,Mzs,Interpolator3D.INTERP_VAL);
-        double microzoo = microzoo_small + microzoo_large; // total microzooplankton
-        double pCO2_conc  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
+        microzoo = microzoo_small + microzoo_large; // total microzooplankton
+        pCO2val  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
+        //calculate pco2 factor:
+        double facCO2 = 0;
+        if(pCO2val > 600) { // only for values larger than 600
+            facCO2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcCO2(pCO2val);
+        } 
 
         time += dt;
         double dtday = dt/86400;//time step in days
 
         // Create objects for output of BIOEN:
-        Double[] bioEN_output = null; // output object of BIOEN calculation
         double gr_mg_fac = 0; // factor to avoid dry_wgt in IF 
         double meta = 0;
-        double sum_ing = 0;
-        double assi = 0;
-        double stomachFullness = 0;
+        double costRateOfMetabolism = 0.5; // check this number
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double old_std_len = std_len;
-        double avgRank = 0;
-        double avgSize = 0;
         // Light (begin):
         // create object for light calculation:
         double[] eb2 = new double[2]; // K parameter + second part of Eb equation
@@ -750,57 +764,45 @@ public class BenthicJuvStage extends AbstractLHS {
 
         if (typeGrDW==BenthicJuvStageParameters.FCN_GrDW_NonEggStageBIOENGrowthRate){
 
-            // Turbulence and wind (begin)
-            double windX = Math.abs(Math.sqrt(Math.abs(tauX)/(1.3*1.2E-3))); // Wind velocity In m/s
-            double windY = Math.abs(Math.sqrt(Math.abs(tauY)/(1.3*1.2E-3))); // Wind velocity In m/s
-            // Turbulence and wind (end)
+            double r = ((0.454 + 1.610*T - 0.069*T*T)*Math.exp(-6.725*old_dry_wgt))/100;// units: 1/day. This is similar to 'g' (1/day) in TROND. 
+            grDW = old_dry_wgt*(Math.exp(r*dtday) - 1); // Same as TROND
 
-            // Bioenergetic growth calculation:
-            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],neocalanus_shelf,neocalanus,copepod,microzoo,pCO2_conc}); //should length be at t or t-1?
-            grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
-            meta = bioEN_output[1];
-            sum_ing = bioEN_output[2];
-            assi = bioEN_output[3];
-            stomachFullness = bioEN_output[4];
-            avgRank = bioEN_output[5];
-            avgSize = bioEN_output[6];
-            double costRateOfMetabolism = 0.5; // check this number
+            // Begin function:
+            meta = dtday*2.38e-7*Math.exp(0.088*T)*Math.pow(old_dry_wgt,0.9)*(1 + facCO2*0.1); // as in Kristiansen et al 2007. Units: mg/day (without dt). HERE I CHANGED dt FOR dtday 
+            // dtday makes more sense 
+
+            if(eb > 0.001) {
+                if(std_len > 5.5){
+                    meta *= 2.5;
+                } else {
+                    meta *= 1.4;
+                }
+            } 
+
             double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
-
-            // Update values:
-            stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
-            gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
+            gr_mg_fac = grDW - activityCost; // Here grDW is as gr_mg in TROND
 
             // New weight in mg:
             dry_wgt += gr_mg_fac;
-
-            // Update (again) stmsta for next time step:
-            stmsta = Math.max(0, stmsta - ((dry_wgt - old_dry_wgt) + meta)/assi);
 
             // Calculate std_len from from weight information:
             std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len); // get parameters from R script
             grSL = std_len - old_std_len;
 
-            tot_len = std_len*1.05; // Just multiply by a factor, TODO: discuss this later
+            tot_len = std_len*1.025; // Just multiply by a factor, TODO: discuss this later
 
         }
-
-        grSL = avgRank;
-        grDW = avgSize;
 
         if (typeGrWW==BenthicJuvStageParameters.FCN_GrWW_BenthicJuv_GrowthRate)
             grWW = (Double) fcnGrWW.calculate(T);
         wet_wgt *= Math.exp(grWW * dtday);
         
         // Survival rate (begin):
-        double[] mort_out = new double[2]; // for mortality output
-        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
-        // mort_out[0] = mortality. mort_out[1] = starved
-        if(mort_out[1] > 1000) {
-            psurvival = 0;
-        } else {
-            psurvival = psurvival*Math.exp(-dt*mort_out[0]);
-        }
+        psurvival = 0;
+        mortfish = 0;
+        mortinv = 0;
+        avgRank = 0;
+        avgSize = 0;
         // Survival rate (end):
 
         updatePosition(pos);
@@ -1010,6 +1012,13 @@ public class BenthicJuvStage extends AbstractLHS {
         atts.setValue(BenthicJuvStageAttributes.PROP_attached,   attached);
         atts.setValue(BenthicJuvStageAttributes.PROP_SL,         std_len);
         atts.setValue(BenthicJuvStageAttributes.PROP_DW,         dry_wgt);
+        atts.setValue(BenthicJuvStageAttributes.PROP_stmsta,     stmsta);
+        atts.setValue(BenthicJuvStageAttributes.PROP_psurvival,  psurvival);
+        atts.setValue(BenthicJuvStageAttributes.PROP_mortfish,mortfish);
+        atts.setValue(BenthicJuvStageAttributes.PROP_mortinv,mortinv);
+        atts.setValue(BenthicJuvStageAttributes.PROP_avgRank,avgRank);
+        atts.setValue(BenthicJuvStageAttributes.PROP_avgSize,avgSize);
+        atts.setValue(BenthicJuvStageAttributes.PROP_pCO2val,  pCO2val);
         atts.setValue(BenthicJuvStageAttributes.PROP_grSL,       grSL);
         atts.setValue(BenthicJuvStageAttributes.PROP_grDW,       grDW);
         atts.setValue(BenthicJuvStageAttributes.PROP_temperature,temperature);    
@@ -1018,13 +1027,14 @@ public class BenthicJuvStage extends AbstractLHS {
         atts.setValue(BenthicJuvStageAttributes.PROP_copepod,    copepod);
         atts.setValue(BenthicJuvStageAttributes.PROP_neocalanus, neocalanus);
         atts.setValue(BenthicJuvStageAttributes.PROP_euphausiid, euphausiid);
+        atts.setValue(BenthicJuvStageAttributes.PROP_neocalanusShelf, neocalanusShelf);
+        atts.setValue(BenthicJuvStageAttributes.PROP_microzoo, microzoo);
         atts.setValue(BenthicJuvStageAttributes.PROP_TL,         tot_len);
         atts.setValue(BenthicJuvStageAttributes.PROP_WW,         wet_wgt);
         atts.setValue(BenthicJuvStageAttributes.PROP_grTL,       grTL);
         atts.setValue(BenthicJuvStageAttributes.PROP_grWW,       grWW);
         atts.setValue(BenthicJuvStageAttributes.PROP_hsi,        hsi);
-        atts.setValue(BenthicJuvStageAttributes.PROP_stmsta,     stmsta);
-        atts.setValue(BenthicJuvStageAttributes.PROP_psurvival,  psurvival);
+
     }
 
     /**
@@ -1036,6 +1046,13 @@ public class BenthicJuvStage extends AbstractLHS {
         attached    = atts.getValue(BenthicJuvStageAttributes.PROP_attached,    attached);
         std_len     = atts.getValue(BenthicJuvStageAttributes.PROP_SL,          std_len);
         dry_wgt     = atts.getValue(BenthicJuvStageAttributes.PROP_DW,          dry_wgt);
+        stmsta      = atts.getValue(BenthicJuvStageAttributes.PROP_stmsta,      stmsta);
+        psurvival    = atts.getValue(BenthicJuvStageAttributes.PROP_psurvival,  psurvival);
+        mortfish      = atts.getValue(BenthicJuvStageAttributes.PROP_mortfish,mortfish);
+        mortinv      = atts.getValue(BenthicJuvStageAttributes.PROP_mortinv,mortinv);
+        avgRank      = atts.getValue(BenthicJuvStageAttributes.PROP_avgRank,avgRank);
+        avgSize      = atts.getValue(BenthicJuvStageAttributes.PROP_avgSize,avgSize);
+        pCO2val    = atts.getValue(BenthicJuvStageAttributes.PROP_pCO2val,  pCO2val);
         grSL        = atts.getValue(BenthicJuvStageAttributes.PROP_grSL,        grSL);
         grDW        = atts.getValue(BenthicJuvStageAttributes.PROP_grDW,        grDW);
         temperature = atts.getValue(BenthicJuvStageAttributes.PROP_temperature, temperature);
@@ -1044,12 +1061,12 @@ public class BenthicJuvStage extends AbstractLHS {
         copepod     = atts.getValue(BenthicJuvStageAttributes.PROP_copepod,     copepod);
         neocalanus  = atts.getValue(BenthicJuvStageAttributes.PROP_neocalanus,  neocalanus);
         euphausiid  = atts.getValue(BenthicJuvStageAttributes.PROP_euphausiid,  euphausiid);
+        neocalanusShelf  = atts.getValue(BenthicJuvStageAttributes.PROP_neocalanusShelf,  neocalanusShelf);
+        microzoo  = atts.getValue(BenthicJuvStageAttributes.PROP_microzoo,  microzoo);
         tot_len     = atts.getValue(BenthicJuvStageAttributes.PROP_TL,          tot_len);
         wet_wgt     = atts.getValue(BenthicJuvStageAttributes.PROP_WW,          wet_wgt);
         grTL        = atts.getValue(BenthicJuvStageAttributes.PROP_grTL,        grTL);
         grWW        = atts.getValue(BenthicJuvStageAttributes.PROP_grWW,        grWW);
         hsi         = atts.getValue(BenthicJuvStageAttributes.PROP_hsi,         hsi);
-        stmsta      = atts.getValue(BenthicJuvStageAttributes.PROP_stmsta,      stmsta);
-        psurvival    = atts.getValue(BenthicJuvStageAttributes.PROP_psurvival,  psurvival);
      }
 }

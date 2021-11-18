@@ -117,6 +117,20 @@ public class EpijuvStage extends AbstractLHS {
     protected double std_len = 0;
     /** dry weight (mg) */
     protected double dry_wgt = 0;
+    /** stomach state (units) */
+    protected double stmsta = 0;
+    /** stomach state (units) */
+    protected double psurvival = 1;
+    /** stomach state (units) */
+    protected double mortfish = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double mortinv = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double avgRank = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double avgSize = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double pCO2val = 0;
     /** growth rate for standard length (mm/d) */
     protected double grSL = 0;
     /** growth rate for dry weight (1/d) */
@@ -131,8 +145,14 @@ public class EpijuvStage extends AbstractLHS {
      protected double copepod;
      /** in situ euphausiid density (mg/m^3, dry wt) */
     protected double euphausiid = 0;
+     /** in situ euphausiid density (mg/m^3, dry wt) */
+    protected double euphausiidsShelf = 0;
      /** in situ neocalanoid (large copepods) density (mg/m^3, dry wt) */
     protected double neocalanus = 0;
+     /** in situ neocalanoid (large copepods) density (mg/m^3, dry wt) */
+    protected double neocalanusShelf = 0;
+     /** in situ neocalanoid (large copepods) density (mg/m^3, dry wt) */
+    protected double microzoo = 0;
     /** total length (mm) */
     protected double tot_len = 0;
     /** wet weight (mg) */
@@ -143,10 +163,6 @@ public class EpijuvStage extends AbstractLHS {
     protected double grWW = 0;
     /** habitat suitability index value */
     protected double hsi = 0;    
-    /** stomach state (units) */
-    protected double stmsta = 0;
-    /** stomach state (units) */
-    protected double psurvival = 1;
     
             //other fields
     /** number of individuals transitioning to next stage */
@@ -727,9 +743,9 @@ public class EpijuvStage extends AbstractLHS {
         //SH-Prey Stuff  
         copepod    = i3d.interpolateValue(pos,FIELD_Cop,Interpolator3D.INTERP_VAL);
         euphausiid = i3d.interpolateValue(pos,FIELD_Eup,Interpolator3D.INTERP_VAL);
+        euphausiidsShelf = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
         neocalanus = i3d.interpolateValue(pos,FIELD_NCa,Interpolator3D.INTERP_VAL);
-        double neocalanus_shelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
-        double euphausiids_shelf  = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
+        neocalanusShelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
         double microzoo_large  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
@@ -738,9 +754,17 @@ public class EpijuvStage extends AbstractLHS {
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4
         double microzoo_small  = i3d.interpolateValue(pos,Mzs,Interpolator3D.INTERP_VAL);
-        double microzoo = microzoo_small + microzoo_large; // total microzooplankton
-        double pCO2_conc  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
-                
+        microzoo = microzoo_small + microzoo_large; // total microzooplankton
+        pCO2val  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
+        // Delete negative (imposible) values:
+        if(chlorophyll<0.0) chlorophyll=0; 
+        if(copepod<0.0) copepod=0; 
+        if(euphausiid<0.0) euphausiid=0; 
+        if(euphausiidsShelf<0.0) euphausiidsShelf=0; 
+        if(neocalanus<0.0) neocalanus=0; 
+        if(neocalanusShelf<0.0) neocalanusShelf=0; 
+        if(microzoo<0.0) microzoo=0; 
+
         double[] uvw = calcUVW(pos,dt,T);//this also sets "attached" and may change pos[2] to 0
         if (attached){
             lp.setIJK(pos[0], pos[1], pos[2]);
@@ -778,8 +802,6 @@ public class EpijuvStage extends AbstractLHS {
         double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double old_std_len = std_len;
-        double avgRank = 0;
-        double avgSize = 0;
         // Light (begin):
         // create object for light calculation:
         double[] eb2 = new double[2]; // K parameter + second part of Eb equation
@@ -822,7 +844,7 @@ public class EpijuvStage extends AbstractLHS {
             // Turbulence and wind (end)
 
             // Bioenergetic growth calculation:
-            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],neocalanus_shelf,neocalanus,copepod,microzoo,pCO2_conc}); //should length be at t or t-1?
+            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],euphausiid,euphausiidsShelf,neocalanusShelf,neocalanus,copepod,microzoo,pCO2val}); //should length be at t or t-1?
             grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
             meta = bioEN_output[1];
             sum_ing = bioEN_output[2];
@@ -831,7 +853,7 @@ public class EpijuvStage extends AbstractLHS {
             avgRank = bioEN_output[5];
             avgSize = bioEN_output[6];
             double costRateOfMetabolism = 0.5; // check this number
-            double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
+            double activityCost = 1*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
 
             // Update values:
             stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
@@ -847,12 +869,9 @@ public class EpijuvStage extends AbstractLHS {
             std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len); // get parameters from R script
             grSL = std_len - old_std_len;
 
-            tot_len = std_len*1.05; // Just multiply by a factor, TODO: discuss this later
+            tot_len = std_len*1.025; // Just multiply by a factor, TODO: discuss this later
 
         }
-
-        grSL = avgRank;
-        grDW = avgSize;
 
         if (typeGrWW==EpijuvStageParameters.FCN_GrWW_Epijuv_GrowthRate)
             grWW = (Double) fcnGrWW.calculate(T);
@@ -860,8 +879,10 @@ public class EpijuvStage extends AbstractLHS {
         wet_wgt *= Math.exp(grWW * dtday); // This values does not matter
         
         // Survival rate (begin):
-        double[] mort_out = new double[2]; // for mortality output
+        double[] mort_out = new double[4]; // for mortality output
         mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+        mortfish = mort_out[2];
+        mortinv = mort_out[3];
         // mort_out[0] = mortality. mort_out[1] = starved
         if(mort_out[1] > 1000) {
             psurvival = 0;
@@ -1176,6 +1197,13 @@ public class EpijuvStage extends AbstractLHS {
         atts.setValue(EpijuvStageAttributes.PROP_attached,   attached);
         atts.setValue(EpijuvStageAttributes.PROP_SL,         std_len);
         atts.setValue(EpijuvStageAttributes.PROP_DW,         dry_wgt);
+        atts.setValue(EpijuvStageAttributes.PROP_stmsta,     stmsta);
+        atts.setValue(EpijuvStageAttributes.PROP_psurvival,  psurvival);
+        atts.setValue(EpijuvStageAttributes.PROP_mortfish,mortfish);
+        atts.setValue(EpijuvStageAttributes.PROP_mortinv,mortinv);
+        atts.setValue(EpijuvStageAttributes.PROP_avgRank,avgRank);
+        atts.setValue(EpijuvStageAttributes.PROP_avgSize,avgSize);
+        atts.setValue(EpijuvStageAttributes.PROP_pCO2val,  pCO2val);
         atts.setValue(EpijuvStageAttributes.PROP_grSL,       grSL);
         atts.setValue(EpijuvStageAttributes.PROP_grDW,       grDW);
         atts.setValue(EpijuvStageAttributes.PROP_temperature,temperature);    
@@ -1184,13 +1212,14 @@ public class EpijuvStage extends AbstractLHS {
         atts.setValue(EpijuvStageAttributes.PROP_copepod,    copepod);
         atts.setValue(EpijuvStageAttributes.PROP_neocalanus, neocalanus);
         atts.setValue(EpijuvStageAttributes.PROP_euphausiid, euphausiid);
+        atts.setValue(EpijuvStageAttributes.PROP_euphausiidShelf, euphausiidsShelf);
+        atts.setValue(EpijuvStageAttributes.PROP_neocalanusShelf, neocalanusShelf);
+        atts.setValue(EpijuvStageAttributes.PROP_microzoo, microzoo);
         atts.setValue(EpijuvStageAttributes.PROP_TL,         tot_len);
         atts.setValue(EpijuvStageAttributes.PROP_WW,         wet_wgt);
         atts.setValue(EpijuvStageAttributes.PROP_grTL,       grTL);
         atts.setValue(EpijuvStageAttributes.PROP_grWW,       grWW);
         atts.setValue(EpijuvStageAttributes.PROP_hsi,        hsi);
-        atts.setValue(EpijuvStageAttributes.PROP_stmsta,     stmsta);
-        atts.setValue(EpijuvStageAttributes.PROP_psurvival,  psurvival);
     }
 
     /**
@@ -1202,6 +1231,13 @@ public class EpijuvStage extends AbstractLHS {
         attached    = atts.getValue(EpijuvStageAttributes.PROP_attached,    attached);
         std_len     = atts.getValue(EpijuvStageAttributes.PROP_SL,          std_len);
         dry_wgt     = atts.getValue(EpijuvStageAttributes.PROP_DW,          dry_wgt);
+        stmsta      = atts.getValue(EpijuvStageAttributes.PROP_stmsta,      stmsta);
+        psurvival    = atts.getValue(EpijuvStageAttributes.PROP_psurvival,  psurvival);
+        mortfish      = atts.getValue(EpijuvStageAttributes.PROP_mortfish,mortfish);
+        mortinv      = atts.getValue(EpijuvStageAttributes.PROP_mortinv,mortinv);
+        avgRank      = atts.getValue(EpijuvStageAttributes.PROP_avgRank,avgRank);
+        avgSize      = atts.getValue(EpijuvStageAttributes.PROP_avgSize,avgSize);
+        pCO2val    = atts.getValue(EpijuvStageAttributes.PROP_pCO2val,  pCO2val);
         grSL        = atts.getValue(EpijuvStageAttributes.PROP_grSL,        grSL);
         grDW        = atts.getValue(EpijuvStageAttributes.PROP_grDW,        grDW);
         temperature = atts.getValue(EpijuvStageAttributes.PROP_temperature, temperature);
@@ -1210,13 +1246,14 @@ public class EpijuvStage extends AbstractLHS {
         copepod     = atts.getValue(EpijuvStageAttributes.PROP_copepod,     copepod);
         neocalanus  = atts.getValue(EpijuvStageAttributes.PROP_neocalanus,  neocalanus);
         euphausiid  = atts.getValue(EpijuvStageAttributes.PROP_euphausiid,  euphausiid);
+        euphausiidsShelf  = atts.getValue(EpijuvStageAttributes.PROP_euphausiidShelf,  euphausiidsShelf);
+        neocalanusShelf  = atts.getValue(EpijuvStageAttributes.PROP_neocalanusShelf,  neocalanusShelf);
+        microzoo  = atts.getValue(EpijuvStageAttributes.PROP_microzoo,  microzoo);
         tot_len     = atts.getValue(EpijuvStageAttributes.PROP_TL,          tot_len);
         wet_wgt     = atts.getValue(EpijuvStageAttributes.PROP_WW,          wet_wgt);
         grTL        = atts.getValue(EpijuvStageAttributes.PROP_grTL,        grTL);
         grWW        = atts.getValue(EpijuvStageAttributes.PROP_grWW,        grWW);
         hsi         = atts.getValue(EpijuvStageAttributes.PROP_hsi,         hsi);
-        stmsta      = atts.getValue(EpijuvStageAttributes.PROP_stmsta,      stmsta);
-        psurvival    = atts.getValue(EpijuvStageAttributes.PROP_psurvival,  psurvival);
     }
 
 }

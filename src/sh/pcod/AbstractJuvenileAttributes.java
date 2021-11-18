@@ -19,7 +19,7 @@ import wts.models.DisMELS.framework.IBMAttributes.IBMAttributeDouble;
 public abstract class AbstractJuvenileAttributes extends AbstractLarvalAttributes {
     
     /** Number of new attributes defined by this class */
-    public static final int numNewAttributes = 7;
+    public static final int numNewAttributes = 5;
     /** key for the habitat suitability attribute */
     public static final String PROP_hsi = "habitat suitability index";
     /** key for the total length attribute */
@@ -30,8 +30,8 @@ public abstract class AbstractJuvenileAttributes extends AbstractLarvalAttribute
     public static final String PROP_grTL  = "growth rate for total length (mm/d)";
     /** key for the wet weight attribute */
     public static final String PROP_grWW  = "growth rate for wet weight (1/d)";
-    public static final String PROP_stmsta      = "stomach state (units)";
-    public static final String PROP_psurvival   = "survival probability";
+    //public static final String PROP_stmsta      = "stomach state (units)";
+    //public static final String PROP_psurvival   = "survival probability";
     
     /** these fields HIDE static fields from superclass and should incorporate ALL information from superclasses */
     protected static final int numAttributes = AbstractLarvalAttributes.numAttributes+numNewAttributes;
@@ -78,8 +78,8 @@ public abstract class AbstractJuvenileAttributes extends AbstractLarvalAttribute
             key = PROP_WW;    keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"WW"));
             key = PROP_grTL;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"grTL"));
             key = PROP_grWW;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"grWW"));
-            key = PROP_stmsta;     keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"stmsta"));
-            key = PROP_psurvival;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"psurvival"));
+            //key = PROP_stmsta;     keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"stmsta"));
+            //key = PROP_psurvival;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"psurvival"));
             
             Iterator<String> it = keys.iterator();
             int j = 0; it.next();//skip typeName
@@ -93,8 +93,8 @@ public abstract class AbstractJuvenileAttributes extends AbstractLarvalAttribute
         tmpMapValues.put(PROP_WW,   new Double(0));
         tmpMapValues.put(PROP_grTL, new Double(0));
         tmpMapValues.put(PROP_grWW, new Double(0));
-        tmpMapValues.put(PROP_stmsta,     new Double(0));
-        tmpMapValues.put(PROP_psurvival,  new Double(1));
+        //tmpMapValues.put(PROP_stmsta,     new Double(0));
+        //tmpMapValues.put(PROP_psurvival,  new Double(1));
         mapValues = tmpMapValues;//assign to super
     }
 

@@ -112,6 +112,16 @@ public class FDLStage extends AbstractLHS {
     protected double stmsta = 0;
     /** stomach state (units) */
     protected double psurvival = 1;
+    /** stomach state (units) */
+    protected double mortfish = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double mortinv = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double avgRank = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double avgSize = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double pCO2val = 0;
     /** growth rate for standard length (mm/d) */
     protected double grSL = 0;
     /** growth rate for dry weight (1/d) */
@@ -126,8 +136,14 @@ public class FDLStage extends AbstractLHS {
      protected double copepod; 
      /** in situ euphausiid density (mg/m^3, dry wt) */
     protected double euphausiid = 0;
+     /** in situ euphausiid density (mg/m^3, dry wt) */
+    protected double euphausiidsShelf = 0;
      /** in situ neocalanoid density (mg/m^3, dry wt) */
     protected double neocalanus = 0;
+     /** in situ euphausiid density (mg/m^3, dry wt) */
+    protected double neocalanusShelf = 0;
+     /** in situ neocalanoid density (mg/m^3, dry wt) */
+    protected double microzoo = 0;
      /** in situ large phytoplankton density (mg/m^3) */
     // protected double phytoL = 0;
      /** in situ small phytoplankton density (mg/m^3) */
@@ -665,9 +681,9 @@ public class FDLStage extends AbstractLHS {
              //SH-Prey Stuff  
         copepod    = i3d.interpolateValue(pos,Cop,Interpolator3D.INTERP_VAL);
         euphausiid = i3d.interpolateValue(pos,Eup,Interpolator3D.INTERP_VAL);
+        euphausiidsShelf = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
         neocalanus = i3d.interpolateValue(pos,NCa,Interpolator3D.INTERP_VAL);
-        double neocalanus_shelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
-        double euphausiids_shelf  = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
+        neocalanusShelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
         double microzoo_large  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
@@ -676,8 +692,17 @@ public class FDLStage extends AbstractLHS {
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4
         double microzoo_small  = i3d.interpolateValue(pos,Mzs,Interpolator3D.INTERP_VAL);
-        double microzoo = microzoo_small + microzoo_large; // total microzooplankton
-        double pCO2_conc  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
+        microzoo = microzoo_small + microzoo_large; // total microzooplankton
+        pCO2val  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
+        // Delete negative (imposible) values:
+        if(chlorophyll<0.0) chlorophyll=0; 
+        if(copepod<0.0) copepod=0; 
+        if(euphausiid<0.0) euphausiid=0; 
+        if(euphausiidsShelf<0.0) euphausiidsShelf=0; 
+        if(neocalanus<0.0) neocalanus=0; 
+        if(neocalanusShelf<0.0) neocalanusShelf=0; 
+        if(microzoo<0.0) microzoo=0; 
+
 
         double[] uvw = calcUVW(pos,dt);//this also sets "attached" and may change pos[2] to 0
         //PRINT UVW
@@ -720,8 +745,6 @@ public class FDLStage extends AbstractLHS {
         double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double old_std_len = std_len;
-        double avgRank = 0;
-        double avgSize = 0;
         // Light (begin):
         // create object for light calculation:
         double[] eb2 = new double[2]; // K parameter and second part of Eb equation
@@ -766,7 +789,7 @@ public class FDLStage extends AbstractLHS {
             // Turbulence and wind (end)
 
             // Bioenergetic growth calculation:
-            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],neocalanus_shelf,neocalanus,copepod,microzoo,pCO2_conc}); //should length be at t or t-1?
+            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],euphausiid,euphausiidsShelf,neocalanusShelf,neocalanus,copepod,microzoo,pCO2val}); //should length be at t or t-1?
             grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
             meta = bioEN_output[1];
             sum_ing = bioEN_output[2];
@@ -775,7 +798,7 @@ public class FDLStage extends AbstractLHS {
             avgRank = bioEN_output[5];
             avgSize = bioEN_output[6];
             double costRateOfMetabolism = 0.5; // check this number
-            double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
+            double activityCost = 1*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
 
             // Update values:
             stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. 
@@ -793,12 +816,11 @@ public class FDLStage extends AbstractLHS {
 
         }
 
-        grSL = avgRank;
-        grDW = avgSize;
-
         // Survival rate (begin):
-        double[] mort_out = new double[2]; // for mortality output
+        double[] mort_out = new double[4]; // for mortality output
         mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+        mortfish = mort_out[2];
+        mortinv = mort_out[3];
         // mort_out[0] = mortality. mort_out[1] = starved
         if(mort_out[1] > 1000) {
             psurvival = 0;
@@ -1041,6 +1063,11 @@ public class FDLStage extends AbstractLHS {
         atts.setValue(FDLStageAttributes.PROP_DW,dry_wgt);
         atts.setValue(FDLStageAttributes.PROP_stmsta,stmsta);
         atts.setValue(FDLStageAttributes.PROP_psurvival,psurvival);
+        atts.setValue(FDLStageAttributes.PROP_mortfish,mortfish);
+        atts.setValue(FDLStageAttributes.PROP_mortinv,mortinv);
+        atts.setValue(FDLStageAttributes.PROP_avgRank,avgRank);
+        atts.setValue(FDLStageAttributes.PROP_avgSize,avgSize);
+        atts.setValue(FDLStageAttributes.PROP_pCO2val,pCO2val);
         atts.setValue(FDLStageAttributes.PROP_grSL,grSL);
         atts.setValue(FDLStageAttributes.PROP_grDW,grDW);
         atts.setValue(FDLStageAttributes.PROP_temperature,temperature);    
@@ -1048,7 +1075,10 @@ public class FDLStage extends AbstractLHS {
         atts.setValue(FDLStageAttributes.PROP_rho,rho);
         atts.setValue(FDLStageAttributes.PROP_copepod,copepod);
         atts.setValue(FDLStageAttributes.PROP_euphausiid,euphausiid);
+        atts.setValue(FDLStageAttributes.PROP_euphausiidShelf,euphausiidsShelf);
         atts.setValue(FDLStageAttributes.PROP_neocalanus,neocalanus);
+        atts.setValue(FDLStageAttributes.PROP_neocalanusShelf,neocalanusShelf);
+        atts.setValue(FDLStageAttributes.PROP_microzoo,microzoo);
     }
 
     /**
@@ -1062,6 +1092,11 @@ public class FDLStage extends AbstractLHS {
         dry_wgt      = atts.getValue(FDLStageAttributes.PROP_DW,dry_wgt);
         stmsta      = atts.getValue(FDLStageAttributes.PROP_stmsta,stmsta);
         psurvival      = atts.getValue(FDLStageAttributes.PROP_psurvival,psurvival);
+        mortfish      = atts.getValue(FDLStageAttributes.PROP_mortfish,mortfish);
+        mortinv      = atts.getValue(FDLStageAttributes.PROP_mortinv,mortinv);
+        avgRank      = atts.getValue(FDLStageAttributes.PROP_avgRank,avgRank);
+        avgSize      = atts.getValue(FDLStageAttributes.PROP_avgSize,avgSize);
+        pCO2val     = atts.getValue(FDLStageAttributes.PROP_pCO2val,pCO2val);
         grSL         = atts.getValue(FDLStageAttributes.PROP_grSL,grSL);
         grDW         = atts.getValue(FDLStageAttributes.PROP_grDW,grDW);
         temperature = atts.getValue(FDLStageAttributes.PROP_temperature,temperature);
@@ -1069,7 +1104,10 @@ public class FDLStage extends AbstractLHS {
         rho         = atts.getValue(FDLStageAttributes.PROP_rho,rho);
         copepod     = atts.getValue(FDLStageAttributes.PROP_copepod,copepod);
         euphausiid  = atts.getValue(FDLStageAttributes.PROP_euphausiid,euphausiid);
+        euphausiidsShelf  = atts.getValue(FDLStageAttributes.PROP_euphausiidShelf,euphausiidsShelf);
         neocalanus  = atts.getValue(FDLStageAttributes.PROP_neocalanus,neocalanus);
+        neocalanusShelf  = atts.getValue(FDLStageAttributes.PROP_neocalanusShelf,neocalanusShelf);
+        microzoo  = atts.getValue(FDLStageAttributes.PROP_microzoo,microzoo);
      }
 
 }

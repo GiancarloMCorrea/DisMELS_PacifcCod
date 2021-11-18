@@ -7,6 +7,7 @@ package sh.pcod;
 
 import org.openide.util.lookup.ServiceProvider;
 import org.openide.util.lookup.ServiceProviders;
+import java.util.Arrays;
 import wts.models.DisMELS.framework.IBMFunctions.AbstractIBMFunction;
 import wts.models.DisMELS.framework.IBMFunctions.IBMFunctionInterface;
 import wts.models.DisMELS.framework.IBMFunctions.IBMGrowthFunctionInterface;
@@ -104,28 +105,32 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double stm_sta = vals[9]; // stomach 
         double attCoeff = vals[10]; // K parameter in Fiksen et al 2002
         // Prey items: should be in this order (by size):
-        double ncas = vals[11]; // prey item 3
-        double ncao = vals[12]; // prey item 4
-        double cop = vals[13]; // prey item 5
-        double mzl = vals[14]; // prey item 6
-        double pCO2 = vals[15]; // pco2 conc
+        double eupo = vals[11]; // prey item 3
+        double eups = vals[12]; // prey item 3
+        double ncas = vals[13]; // prey item 3
+        double ncao = vals[14]; // prey item 4
+        double cop = vals[15]; // prey item 5
+        double mzl = vals[16]; // prey item 6
+        double pCO2 = vals[17]; // pco2 conc
 
         // prey information
-        int npreyitems = 4; // number of prey items
-        double[] zoo_carbon = {ncas, ncao, cop, mzl}; 
-        double[] par_a = {2.75E-12, 1E-10, 2.4E-8, 2.63E-6}; 
-        double[] par_b = {4.03, 3.56, 2.85, 2.23}; 
-        double[] min_len = {950, 350, 350, 20}; // minimum length in um
-        double[] dlen = {150, 150, 150, 15}; // size bin in um
-        int[] nsizes = {15, 8, 7, 13}; // n size categories 
-        // Zooplankton total len vector: (in um)
-        double[] zoolen = {20, 35, 50, 65, 80, 95, 110, 125, 140, 155, 170, 185, 200, 350, 500, 650, 800, 950, 1100, 1250, 1400, 1550, 1700, 1850, 2000, 2150, 2300, 2450, 2600, 2750, 2900, 3050};
-        int nallsizes = 32;
+        int npreyitems = 6; // number of prey items
+        double[] zoo_carbon = {eupo, eups, ncas, ncao, cop, mzl}; 
+        double[] par_a = {1.38E-8, 7.83E-9, 2.75E-12, 1E-10, 2.4E-8, 2.63E-6}; 
+        double[] par_b = {2.92, 3.02, 4.03, 3.56, 2.85, 2.23}; 
+        double[] min_len = {3000, 3000, 400, 200, 200, 20}; // minimum length in um
+        double[] dlen = {3000, 3000, 200, 200, 200, 80}; // size bin in um
+        int[] nsizes = {10, 8, 14, 7, 7, 3}; // n size categories 
+        // Zooplankton total len vector: (in mm)
+        double[] zoolen = {0.02, 0.1, 0.18, 0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.4, 1.6, 1.8, 2, 2.2, 2.4, 2.6, 2.8, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30};
+        int nallsizes = zoolen.length;
         int[][] zooInd = new int[npreyitems][nallsizes];
-        int[] ncasInd = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}; // for ncas
-        int[] ncaoInd = {0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0}; // for ncao
-        int[] copInd = {0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0}; // for cop
-        int[] mzlInd = {1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // for mzl
+        int[] eupoInd = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1}; // for eupo
+        int[] eupsInd = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0}; // for eups
+        int[] ncasInd = {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0}; // for ncas
+        int[] ncaoInd = {0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // for ncao
+        int[] copInd =  {0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // for cop
+        int[] mzlInd =  {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // for mzl
         // double[][] prey_len = new double[npreyitems][nallsizes];
         double[][] prey_wgt = new double[npreyitems][nallsizes];
         double[][] prey_area = new double[npreyitems][nallsizes];
@@ -140,10 +145,12 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             int sind = 0;
             for(int psi=0; psi < nallsizes; psi++) {
 
-                if(pit == 0) zooInd[pit][psi] = ncasInd[psi];
-                if(pit == 1) zooInd[pit][psi] = ncaoInd[psi];
-                if(pit == 2) zooInd[pit][psi] = copInd[psi];
-                if(pit == 3) zooInd[pit][psi] = mzlInd[psi];
+                if(pit == 0) zooInd[pit][psi] = eupoInd[psi];
+                if(pit == 1) zooInd[pit][psi] = eupsInd[psi];
+                if(pit == 2) zooInd[pit][psi] = ncasInd[psi];
+                if(pit == 3) zooInd[pit][psi] = ncaoInd[psi];
+                if(pit == 4) zooInd[pit][psi] = copInd[psi];
+                if(pit == 5) zooInd[pit][psi] = mzlInd[psi];
 
                 if(zooInd[pit][psi] == 1) {
                     // prey_len[pit][psi] = out_zoo[0][sind];
@@ -158,7 +165,10 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         }
 
         //calculate pco2 factor:
-        double facCO2 = calcCO2(pCO2);
+        double facCO2 = 0;
+        if(pCO2 > 600) { // only for values larger than 600
+            facCO2 = calcCO2(pCO2);
+        } 
 
         // Begin function:
         double meta = dtday*2.38e-7*Math.exp(0.088*t)*Math.pow(m,0.9)*(1 + facCO2*0.1); // as in Kristiansen et al 2007. Units: mg/day (without dt). HERE I CHANGED dt FOR dtday 
@@ -213,21 +223,37 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         int n_enc = 10;
         double eps = (5.82*1e-9*Math.pow(Math.sqrt(Math.pow(windX,2) + Math.pow(windY,2)), 3))/(depth+0.1); // Equation 1 in MacKenzie and Leggett 1993
         double gape = Math.exp(-3.720 + 1.818*Math.log(std_len) - 0.1219*Math.pow(Math.log(std_len), 2)); // mouth diameter
-        double pl_max = 0.09; // max prey len relative to fish len
+        double pl_max = 0.1; // max prey len relative to fish len
 
         Double[] return_vec = new Double[7]; // value to Return should be specified here
         // This is an 2D array of length = 4
 
         double max_psize = std_len*pl_max; // maximum prey size allowed in diet based on Munk 1997
-        double sum_numing = 0; // sum ingestion 
-        double sum_dening = 0; // sum ingestion 
+        double sum_numing = 1E-20; // sum ingestion. Very small number to avoid zero error later on.
+        double sum_dening = 1E-20; // sum ingestion. Very small number to avoid zero error later on.
         double stomachFullness = 0; // stomach fullness
         double sve_ing = 0; // to calculate mean rank and size
         double avgRankNum = 0; // to calculate mean rank
         double avgSizeNum = 0; // to calculate mean size
 
+        // Check prey preference based on size:
+        double sizePref = 0.05; // prefered ratio size
+        double[] ratioLens = new double[nallsizes]; 
+        double[] diffLens = new double[nallsizes]; 
+        Integer[] rankLens = new Integer[nallsizes]; 
+        for(int k=0; k<nallsizes; k++) {
+            ratioLens[k] = zoolen[k]/std_len;
+            diffLens[k] = Math.abs(ratioLens[k] - sizePref);
+        }
+        rankLens = rankify(diffLens, nallsizes); // starts at 1, 2, 3, ...
+        int i = 0; // loop indicator over lens
+
         // Begin loop:
-        length_loop: for(int i = nallsizes-1; i >= 0; i--) { // reverse loop: from larger to smaller sizes
+        length_loop: for(int itm = 0; itm < nallsizes; itm++) { // reverse loop: from larger to smaller sizes
+
+            // Find rank:
+            int elementToFind = itm + 1; // because it starts at 1
+            i = Arrays.asList(rankLens).indexOf(elementToFind);
 
             if(zoolen[i] > max_psize) { // only run loop when prey size is smaller than maximum prey size that a larva can capture
 
@@ -237,13 +263,9 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
                 prey_loop: for(int pit=0; pit<npreyitems; pit++) {
 
-                    if(prey_abun[pit][i] < 0.00001) { // when very small prey abundance is present, do not run the prey loop
+                    if(prey_abun[pit][i] > 0.00001) { // when very very small prey abundance is present, do not run the prey loop
 
-                        continue prey_loop;
-
-                    } else {
-
-                        if(stomachFullness == 1) {
+                        if(stomachFullness >= 1) {
 
                             break length_loop;
 
@@ -253,7 +275,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
                             double visual = Math.sqrt(em*contrast*prey_area[pit][i]*(eb/(ke_larvae+eb)));
                             double image = prey_area[pit][i];
 
-                            if(eb < 1E-50) { // Here is the bug I got. When Eb is extremely small, no run the visual estimation algorithm, then visual = 0
+                            if(eb < 1E-15) { // Here is the bug I got. When Eb is extremely small, no run the visual estimation algorithm, then visual = 0
 
                                 visual = 0;
                                 numing = 0; // no ingestion in dark environemnts
@@ -263,6 +285,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
                                 double[] getr_out = new double[2];
                                 getr_out = getr(visual, beamAttCoeff/1000, contrast, image, em, ke_larvae, eb, ier); // m2mm = 1000
+                                //double[] getr_out = {0,10};
                                 visual = getr_out[1]; // 0 = new ier, 1 = new 'visual' value after getr
 
                                 // pca[i] = Math.max(0, Math.min(1, -16.7*(prey_len[i]/std_len) + (3/2)));
@@ -357,7 +380,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
                                     double par_a_cs = 1.1*std_len/(pl_max*std_len); // pl_max assumed to be 0.09*std_len                                   
                                     pca = Math.max(0, 1 - (par_a_cs * (zoolen[i]/std_len)));
 
-                                } // end If
+                                } // end If std_len > 17
 
                                 double omega = Math.sqrt(3.615*Math.pow((eps*visual*0.001), 0.667)); //mm2m = 0.001. Equation 11 in MacKenzie Miller 1994. Is it wrong in TROND?
                                 omega = omega * 1000; // m2mm = 1000. From m/s to mm/s
@@ -378,19 +401,18 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
                             // calculate ingestion : Letcher et al 1996
                             ing = dt*sum_numing/(1 + sum_dening); 
 
-                            avgRankNum += (ing-sve_ing)*(4-pit);
-                            avgSizeNum += (ing-sve_ing)*(zoolen[i]);
-                            sve_ing = ing;
+                            avgRankNum += numing*(pit+1); // numing makes more sense than ing
+                            avgSizeNum += numing*(zoolen[i]);
                             // Here calculate suming and check stomach fullness:
                             stomachFullness = Math.min(1, (stm_sta + ing/(m*0.06)));
 
                         }   // else in stomachFullness conditional
 
-                    } // else prey_abun conditional
+                    } // If prey_abun conditional
 
                 } // end prey_loop
 
-            } // else max prey size
+            } // If max prey size
 
         } // end of length_loop
 
@@ -399,8 +421,8 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         return_vec[2] = ing;
         return_vec[3] = assi;
         return_vec[4] = stomachFullness;
-        return_vec[5] = avgRankNum/ing;
-        return_vec[6] = avgSizeNum/ing;
+        return_vec[5] = avgRankNum/sum_numing;
+        return_vec[6] = avgSizeNum/sum_numing;
         return return_vec;
 
     }
@@ -572,7 +594,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             // Find weight and width:
             for(int i = 0; i < prey_length.length; i++){ 
                 prey_wgt[i] = par_a*Math.pow(prey_length[i], par_b); // in ug
-                prey_width[i] = prey_length[i]*0.3/1000; // from um to mm
+                prey_width[i] = prey_length[i]*0.3/1000; // width = 0.3*length. In mm
             }
 
             double tm = 0;
@@ -592,7 +614,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             }
 
             for(int i = 0; i < prey_length.length; i++){
-                return_array[1][i] = prey_wgt[i]; // THIS IS PREY WEIGHT
+                return_array[1][i] = prey_wgt[i]; // THIS IS PREY WEIGHT in ug
             }
 
             for(int i = 0; i < prey_length.length; i++){
@@ -607,7 +629,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
                 return_array[3][i] = sp_pl[i] * (prey_item_1_ug/prey_wgt[i])/1000; // THIS IS ABUNDANCE PER LEN BIN. units: no. ind/L
             }
 
-            return return_array; // TODO: output other prey items
+            return return_array; 
 
     }
 
@@ -730,7 +752,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     public static double[] TotalMortality(double larval_m, double eb, double attCoeff, double larva_wgt, double new_larva_wgt, double suming, double stomachFullness) {
 
-        double[] return_mort = new double[2]; // output object
+        double[] return_mort = new double[4]; // output object
 
         double larvalShape = 0.2; // Larval width:length ratio
         double contrast = 0.3;
@@ -756,7 +778,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double visual = 0.0;
 
         // All input to getr is either in m (or per m), or in mm (or per mm). Here we use meter (m):
-        if(eb < 1E-50) { 
+        if(eb < 1E-15) { 
             visual = 0;
         } else {
             double[] getr_out = new double[2];
@@ -772,6 +794,8 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
         return_mort[0] = mortality;
         return_mort[1] = starved;
+        return_mort[2] = fishMortality*1000000; // to print it in large numbers
+        return_mort[3] = invertebrateMortality*1000000; // to print it in large numbers
 
         return return_mort;
 
@@ -814,6 +838,38 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         return outVal;
 
     }
+
+    // Function to print m Maximum elements
+    public static Integer[] rankify(double A[], int n)
+    {
+        // Rank Vector
+        Integer[] R = new Integer[n];
+     
+        // Sweep through all elements in A
+        // for each element count the number
+        // of less than and equal elements
+        // separately in r and s
+        for (int i = 0; i < n; i++) {
+            int r = 1, s = 1;
+             
+            for (int j = 0; j < n; j++)
+            {
+                if (j != i && A[j] < A[i])
+                    r += 1;
+                     
+                if (j != i && A[j] == A[i])
+                    s += 1;    
+            }
+         
+        // Use formula to obtain  rank
+        R[i] = r + (int)(s - 1) / (int) 2;
+     
+        }
+     
+        return R;
+         
+    }
+
 
     // public static double[] calculateJuv(double t, double m, double dt, double dtday, double std_len, double eb, double windX, double windY, double depth, double stm_sta, double attCoeff, double eupo, double eups, double ncas, double ncao, double cop, double mzl) {
     //     // prey information
