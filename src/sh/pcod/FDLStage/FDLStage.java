@@ -117,9 +117,15 @@ public class FDLStage extends AbstractLHS {
     /** stomach state (units) */
     protected double mortinv = 0; // Here initial value of p_survival
     /** stomach state (units) */
+    protected double mortstarv = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double dwmax = 0; // Here initial value of p_survival
+    /** stomach state (units) */
     protected double avgRank = 0; // Here initial value of p_survival
     /** stomach state (units) */
     protected double avgSize = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double stomachFullness = 0; // Here initial value of p_survival
     /** stomach state (units) */
     protected double pCO2val = 0;
     /** growth rate for standard length (mm/d) */
@@ -742,7 +748,6 @@ public class FDLStage extends AbstractLHS {
         double meta = 0;
         double sum_ing = 0;
         double assi = 0;
-        double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double old_std_len = std_len;
         // Light (begin):
@@ -803,7 +808,10 @@ public class FDLStage extends AbstractLHS {
             // Update values:
             stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. 
             gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
-            
+
+            //Calculate maxDW:
+            dwmax += (grDW - activityCost);
+
             // new weight in mg:
             dry_wgt += gr_mg_fac;
 
@@ -817,10 +825,11 @@ public class FDLStage extends AbstractLHS {
         }
 
         // Survival rate (begin):
-        double[] mort_out = new double[4]; // for mortality output
-        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+        double[] mort_out = new double[5]; // for mortality output
+        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], dry_wgt, sum_ing, stomachFullness, dwmax); // mm2m = 0.001
         mortfish = mort_out[2];
         mortinv = mort_out[3];
+        mortstarv = mort_out[4];
         // mort_out[0] = mortality. mort_out[1] = starved
         if(mort_out[1] > 1000) {
             psurvival = 0;
@@ -901,6 +910,7 @@ public class FDLStage extends AbstractLHS {
             *              w        - individual active vertical movement velocity
             *              attached - flag indicating whether individual is attached to bottom(< 0) or not (>0)
             */
+
             double td = i3d.interpolateBathymetricDepth(lp.getIJK());
             double[] res = (double[]) fcnVM.calculate(new double[]{dt,depth,td,w,90.833-ss[4]});
             w = res[0];
@@ -1065,8 +1075,11 @@ public class FDLStage extends AbstractLHS {
         atts.setValue(FDLStageAttributes.PROP_psurvival,psurvival);
         atts.setValue(FDLStageAttributes.PROP_mortfish,mortfish);
         atts.setValue(FDLStageAttributes.PROP_mortinv,mortinv);
+        atts.setValue(YSLStageAttributes.PROP_mortstarv,mortstarv);
+        atts.setValue(YSLStageAttributes.PROP_dwmax,dwmax);
         atts.setValue(FDLStageAttributes.PROP_avgRank,avgRank);
         atts.setValue(FDLStageAttributes.PROP_avgSize,avgSize);
+        atts.setValue(FDLStageAttributes.PROP_stomachFullness,stomachFullness);
         atts.setValue(FDLStageAttributes.PROP_pCO2val,pCO2val);
         atts.setValue(FDLStageAttributes.PROP_grSL,grSL);
         atts.setValue(FDLStageAttributes.PROP_grDW,grDW);
@@ -1094,8 +1107,11 @@ public class FDLStage extends AbstractLHS {
         psurvival      = atts.getValue(FDLStageAttributes.PROP_psurvival,psurvival);
         mortfish      = atts.getValue(FDLStageAttributes.PROP_mortfish,mortfish);
         mortinv      = atts.getValue(FDLStageAttributes.PROP_mortinv,mortinv);
+        mortstarv    = atts.getValue(FDLStageAttributes.PROP_mortstarv,mortstarv); 
+        dwmax    = atts.getValue(FDLStageAttributes.PROP_dwmax,dwmax); 
         avgRank      = atts.getValue(FDLStageAttributes.PROP_avgRank,avgRank);
         avgSize      = atts.getValue(FDLStageAttributes.PROP_avgSize,avgSize);
+        stomachFullness    = atts.getValue(FDLStageAttributes.PROP_stomachFullness,stomachFullness);   
         pCO2val     = atts.getValue(FDLStageAttributes.PROP_pCO2val,pCO2val);
         grSL         = atts.getValue(FDLStageAttributes.PROP_grSL,grSL);
         grDW         = atts.getValue(FDLStageAttributes.PROP_grDW,grDW);

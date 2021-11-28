@@ -126,9 +126,15 @@ public class EpijuvStage extends AbstractLHS {
     /** stomach state (units) */
     protected double mortinv = 0; // Here initial value of p_survival
     /** stomach state (units) */
+    protected double mortstarv = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double dwmax = 0; // Here initial value of p_survival
+    /** stomach state (units) */
     protected double avgRank = 0; // Here initial value of p_survival
     /** stomach state (units) */
     protected double avgSize = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double stomachFullness = 0; // Here initial value of p_survival
     /** stomach state (units) */
     protected double pCO2val = 0;
     /** growth rate for standard length (mm/d) */
@@ -799,7 +805,6 @@ public class EpijuvStage extends AbstractLHS {
         double meta = 0;
         double sum_ing = 0;
         double assi = 0;
-        double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double old_std_len = std_len;
         // Light (begin):
@@ -859,6 +864,9 @@ public class EpijuvStage extends AbstractLHS {
             stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
             gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
 
+            //Calculate maxDW:
+            dwmax += (grDW - activityCost);
+
             // New weight in mg:
             dry_wgt += gr_mg_fac;
 
@@ -869,7 +877,7 @@ public class EpijuvStage extends AbstractLHS {
             std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len); // get parameters from R script
             grSL = std_len - old_std_len;
 
-            tot_len = std_len*1.025; // Just multiply by a factor, TODO: discuss this later
+            tot_len = (std_len + 0.5169)/0.9315; // Just multiply by a factor, TODO: discuss this later
 
         }
 
@@ -879,10 +887,11 @@ public class EpijuvStage extends AbstractLHS {
         wet_wgt *= Math.exp(grWW * dtday); // This values does not matter
         
         // Survival rate (begin):
-        double[] mort_out = new double[4]; // for mortality output
-        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+        double[] mort_out = new double[5]; // for mortality output
+        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], dry_wgt, sum_ing, stomachFullness, dwmax); // mm2m = 0.001
         mortfish = mort_out[2];
         mortinv = mort_out[3];
+        mortstarv = mort_out[4];
         // mort_out[0] = mortality. mort_out[1] = starved
         if(mort_out[1] > 1000) {
             psurvival = 0;
@@ -969,6 +978,11 @@ public class EpijuvStage extends AbstractLHS {
             *              w        - individual active vertical movement velocity
             *              attached - flag indicating whether individual is attached to bottom(< 0) or not (>0)
             */
+
+            // modification vertical velocity:
+            double nhours = 4; //time step in model
+            if(w*3600 > 60/nhours) w = (60/nhours)/3600; // compare w (m/hr) with std velocity (m/hr)
+            
             double td = i3d.interpolateBathymetricDepth(lp.getIJK());
             double[] res = (double[]) fcnVM.calculate(new double[]{dt,depth,td,w,90.833-ss[4]});
             w = res[0];
@@ -1201,8 +1215,11 @@ public class EpijuvStage extends AbstractLHS {
         atts.setValue(EpijuvStageAttributes.PROP_psurvival,  psurvival);
         atts.setValue(EpijuvStageAttributes.PROP_mortfish,mortfish);
         atts.setValue(EpijuvStageAttributes.PROP_mortinv,mortinv);
+        atts.setValue(EpijuvStageAttributes.PROP_mortstarv,mortstarv);
+        atts.setValue(EpijuvStageAttributes.PROP_dwmax,dwmax);
         atts.setValue(EpijuvStageAttributes.PROP_avgRank,avgRank);
         atts.setValue(EpijuvStageAttributes.PROP_avgSize,avgSize);
+        atts.setValue(EpijuvStageAttributes.PROP_stomachFullness,stomachFullness);
         atts.setValue(EpijuvStageAttributes.PROP_pCO2val,  pCO2val);
         atts.setValue(EpijuvStageAttributes.PROP_grSL,       grSL);
         atts.setValue(EpijuvStageAttributes.PROP_grDW,       grDW);
@@ -1235,8 +1252,11 @@ public class EpijuvStage extends AbstractLHS {
         psurvival    = atts.getValue(EpijuvStageAttributes.PROP_psurvival,  psurvival);
         mortfish      = atts.getValue(EpijuvStageAttributes.PROP_mortfish,mortfish);
         mortinv      = atts.getValue(EpijuvStageAttributes.PROP_mortinv,mortinv);
+        mortstarv    = atts.getValue(EpijuvStageAttributes.PROP_mortstarv,mortstarv); 
+        dwmax    = atts.getValue(EpijuvStageAttributes.PROP_dwmax,dwmax); 
         avgRank      = atts.getValue(EpijuvStageAttributes.PROP_avgRank,avgRank);
         avgSize      = atts.getValue(EpijuvStageAttributes.PROP_avgSize,avgSize);
+        stomachFullness    = atts.getValue(EpijuvStageAttributes.PROP_stomachFullness,stomachFullness);   
         pCO2val    = atts.getValue(EpijuvStageAttributes.PROP_pCO2val,  pCO2val);
         grSL        = atts.getValue(EpijuvStageAttributes.PROP_grSL,        grSL);
         grDW        = atts.getValue(EpijuvStageAttributes.PROP_grDW,        grDW);

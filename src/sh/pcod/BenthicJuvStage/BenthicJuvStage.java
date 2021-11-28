@@ -122,9 +122,15 @@ public class BenthicJuvStage extends AbstractLHS {
     /** stomach state (units) */
     protected double mortinv = 0; // Here initial value of p_survival
     /** stomach state (units) */
+    protected double mortstarv = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double dwmax = 0; // Here initial value of p_survival
+    /** stomach state (units) */
     protected double avgRank = 0; // Here initial value of p_survival
     /** stomach state (units) */
     protected double avgSize = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double stomachFullness = 0; // Here initial value of p_survival
     /** stomach state (units) */
     protected double pCO2val = 0;
     /** growth rate for standard length (mm/d) */
@@ -782,6 +788,9 @@ public class BenthicJuvStage extends AbstractLHS {
             double activityCost = 0.5*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
             gr_mg_fac = grDW - activityCost; // Here grDW is as gr_mg in TROND
 
+            //Calculate maxDW:
+            dwmax += (grDW - activityCost);
+
             // New weight in mg:
             dry_wgt += gr_mg_fac;
 
@@ -801,8 +810,10 @@ public class BenthicJuvStage extends AbstractLHS {
         psurvival = 0;
         mortfish = 0;
         mortinv = 0;
+        mortstarv = 0;
         avgRank = 0;
         avgSize = 0;
+        stomachFullness = 1;
         // Survival rate (end):
 
         updatePosition(pos);
@@ -1016,8 +1027,11 @@ public class BenthicJuvStage extends AbstractLHS {
         atts.setValue(BenthicJuvStageAttributes.PROP_psurvival,  psurvival);
         atts.setValue(BenthicJuvStageAttributes.PROP_mortfish,mortfish);
         atts.setValue(BenthicJuvStageAttributes.PROP_mortinv,mortinv);
+        atts.setValue(BenthicJuvStageAttributes.PROP_mortstarv,mortstarv);
+        atts.setValue(BenthicJuvStageAttributes.PROP_dwmax,dwmax);
         atts.setValue(BenthicJuvStageAttributes.PROP_avgRank,avgRank);
         atts.setValue(BenthicJuvStageAttributes.PROP_avgSize,avgSize);
+        atts.setValue(BenthicJuvStageAttributes.PROP_stomachFullness,stomachFullness);
         atts.setValue(BenthicJuvStageAttributes.PROP_pCO2val,  pCO2val);
         atts.setValue(BenthicJuvStageAttributes.PROP_grSL,       grSL);
         atts.setValue(BenthicJuvStageAttributes.PROP_grDW,       grDW);
@@ -1050,8 +1064,11 @@ public class BenthicJuvStage extends AbstractLHS {
         psurvival    = atts.getValue(BenthicJuvStageAttributes.PROP_psurvival,  psurvival);
         mortfish      = atts.getValue(BenthicJuvStageAttributes.PROP_mortfish,mortfish);
         mortinv      = atts.getValue(BenthicJuvStageAttributes.PROP_mortinv,mortinv);
+        mortstarv    = atts.getValue(BenthicJuvStageAttributes.PROP_mortstarv,mortstarv); 
+        dwmax    = atts.getValue(BenthicJuvStageAttributes.PROP_dwmax,dwmax); 
         avgRank      = atts.getValue(BenthicJuvStageAttributes.PROP_avgRank,avgRank);
         avgSize      = atts.getValue(BenthicJuvStageAttributes.PROP_avgSize,avgSize);
+        stomachFullness    = atts.getValue(BenthicJuvStageAttributes.PROP_stomachFullness,stomachFullness);   
         pCO2val    = atts.getValue(BenthicJuvStageAttributes.PROP_pCO2val,  pCO2val);
         grSL        = atts.getValue(BenthicJuvStageAttributes.PROP_grSL,        grSL);
         grDW        = atts.getValue(BenthicJuvStageAttributes.PROP_grDW,        grDW);

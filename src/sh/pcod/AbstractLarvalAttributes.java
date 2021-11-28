@@ -27,7 +27,7 @@ import wts.models.DisMELS.framework.IBMAttributes.IBMAttributeDouble;
 public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
     
     /** Number of new attributes defined by this class */
-    public static final int numNewAttributes = 21;
+    public static final int numNewAttributes = 24;
     public static final String PROP_attached    = "attached";
     public static final String PROP_SL          = "standard length (mm)";
     public static final String PROP_DW          = "dry weight (mg)";
@@ -35,8 +35,11 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
     public static final String PROP_psurvival   = "survival probability";
     public static final String PROP_mortfish   = "mortality fish predation";
     public static final String PROP_mortinv   = "mortality invertebrates";
+    public static final String PROP_mortstarv   = "mortality starvation";
+    public static final String PROP_dwmax   = "max attainable DW";
     public static final String PROP_avgRank   = "average rank in diet";
     public static final String PROP_avgSize   = "average size in diet";
+    public static final String PROP_stomachFullness   = "stomach fullness";
     public static final String PROP_pCO2val    = "pCO2 concentration";
     public static final String PROP_grSL        = "growth rate for SL (mm/d)";
     public static final String PROP_grDW        = "growth rate for DW (1/d)";
@@ -97,8 +100,11 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
             key = PROP_psurvival;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"psurvival"));
             key = PROP_mortfish;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"mortfish"));
             key = PROP_mortinv;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"mortinv"));
+            key = PROP_mortstarv;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"mortstarv"));
+            key = PROP_dwmax;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"dwmax"));
             key = PROP_avgRank;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"avgRank"));
-            key = PROP_avgSize;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"avgSize"));          
+            key = PROP_avgSize;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"avgSize")); 
+            key = PROP_stomachFullness;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"stomachFullness"));                   
             key = PROP_pCO2val;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"pCO2val"));
             key = PROP_grSL;       keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"grSL"));
             key = PROP_grDW;       keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"grDW"));
@@ -126,8 +132,11 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
         tmpMapValues.put(PROP_psurvival,  new Double(1));
         tmpMapValues.put(PROP_mortfish,  new Double(1));
         tmpMapValues.put(PROP_mortinv,  new Double(1));
+        tmpMapValues.put(PROP_mortstarv,  new Double(1));
+        tmpMapValues.put(PROP_dwmax,  new Double(1));
         tmpMapValues.put(PROP_avgRank,  new Double(1));
         tmpMapValues.put(PROP_avgSize,  new Double(1));
+        tmpMapValues.put(PROP_stomachFullness,  new Double(1));
         tmpMapValues.put(PROP_pCO2val,    new Double(0));
         tmpMapValues.put(PROP_grSL,       new Double(0));
         tmpMapValues.put(PROP_grDW,       new Double(0));

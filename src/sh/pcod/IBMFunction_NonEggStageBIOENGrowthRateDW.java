@@ -183,7 +183,21 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         } 
 
         double assi = 0.8*(1-0.4*Math.exp(-0.002*(m*1000-50)));// mg2ug=1000 here. No units
-        double r = ((0.454 + 1.610*t - 0.069*t*t)*Math.exp(-6.725*m))/100;// units: 1/day. This is similar to 'g' (1/day) in TROND. 
+        //double r = ((0.454 + 1.610*t - 0.069*t*t)*Math.exp(-6.725*m))/100;// units: 1/day. This is similar to 'g' (1/day) in TROND. 
+
+        double r = 0;
+        // Growth rates stage-specific:
+        // if(std_len <= 13.5) {
+        //    r = (2.99 + 0.772*t - 0.077*t*t)/100;
+        // }
+        // if((std_len > 13.5) && (std_len <= 25)) {
+        //    r = (1.652 + 1.059*t - 0.028*t*t)/100;
+        // }
+        // if(std_len > 25) {
+            r = ((0.454 + 1.610*t - 0.069*t*t)*Math.exp(-2.225*m))/100;
+        // }
+        // Continue code..
+
         if((std_len > 5) && (std_len <= 6)) {
             r *= (1 - facCO2*0.05);
         }
@@ -223,7 +237,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         int n_enc = 10;
         double eps = (5.82*1e-9*Math.pow(Math.sqrt(Math.pow(windX,2) + Math.pow(windY,2)), 3))/(depth+0.1); // Equation 1 in MacKenzie and Leggett 1993
         double gape = Math.exp(-3.720 + 1.818*Math.log(std_len) - 0.1219*Math.pow(Math.log(std_len), 2)); // mouth diameter
-        double pl_max = 0.1; // max prey len relative to fish len
+        double pl_max = 0.12; // max prey len relative to fish len
 
         Double[] return_vec = new Double[7]; // value to Return should be specified here
         // This is an 2D array of length = 4
@@ -237,7 +251,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double avgSizeNum = 0; // to calculate mean size
 
         // Check prey preference based on size:
-        double sizePref = 0.05; // prefered ratio size
+        double sizePref = 0.06; // prefered ratio size
         double[] ratioLens = new double[nallsizes]; 
         double[] diffLens = new double[nallsizes]; 
         Integer[] rankLens = new Integer[nallsizes]; 
@@ -729,7 +743,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     public static double getL_fromW(double wgt, double len) {
 
-        double len_out = Math.pow(wgt/1.427E-07, 1/3.731);
+        double len_out = Math.pow(wgt/1.976E-06, 1/2.974);
 
         if(len_out < len) len_out = len;
 
@@ -742,7 +756,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     public static double getW_fromL(double len) {
 
-        double wgt_out = 1.427E-07*Math.pow(len, 3.731);
+        double wgt_out = 1.976E-06*Math.pow(len, 2.974);
 
         return wgt_out;
 
@@ -750,9 +764,9 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     // Mortality function:
 
-    public static double[] TotalMortality(double larval_m, double eb, double attCoeff, double larva_wgt, double new_larva_wgt, double suming, double stomachFullness) {
+    public static double[] TotalMortality(double larval_m, double eb, double attCoeff, double new_larva_wgt, double suming, double stomachFullness, double dwmax) {
 
-        double[] return_mort = new double[4]; // output object
+        double[] return_mort = new double[5]; // output object
 
         double larvalShape = 0.2; // Larval width:length ratio
         double contrast = 0.3;
@@ -761,7 +775,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double fishSwimVel = 0.10;      // Fish cruising velocity (m/s)
         double aPred = 2.77e-6; // same as 0.01 h-1 as Kristiansen et al 2014
         double bPred = -1.3;    // 0.78d-5=0.1/3600., -1.3 Parameters for purely size-dependent mortality Fiksen et al. 2002
-        double starvationMortality = 1.0e-7;
+        double starvationMortality = 1.0e-6;
         double setMort = 1; // 
         double ke_predator = 1;
         double fishDens = 0.0001; // fish density (fish/m^3)
@@ -789,13 +803,14 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         // Calculate lethal encounter rate with fish setMort is either 0 (off) or 1 (on)
         double fishMortality = setMort*(visFieldShape*Math.PI*Math.pow(visual,2)*fishSwimVel*fishDens);
         double invertebrateMortality = setMort*OtherPred(larval_m, aPred, bPred, m2mm);
-        double starved = AliveOrDead(larva_wgt, new_larva_wgt, larval_m, suming, stomachFullness, deadThreshold, m2mm);
+        double starved = AliveOrDead(new_larva_wgt, larval_m, suming, stomachFullness, deadThreshold, m2mm, dwmax);
         double mortality = (invertebrateMortality + fishMortality + starved*starvationMortality);
 
         return_mort[0] = mortality;
         return_mort[1] = starved;
         return_mort[2] = fishMortality*1000000; // to print it in large numbers
         return_mort[3] = invertebrateMortality*1000000; // to print it in large numbers
+        return_mort[4] = starved*starvationMortality*1000000; // to print it in large numbers
 
         return return_mort;
 
@@ -810,22 +825,21 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     }
 
-    public static double AliveOrDead(double larva_wgt, double new_larva_wgt, double larval_m, double suming, double stomachFullness, double deadThreshold, double m2mm){
+    public static double AliveOrDead(double new_larva_wgt, double larval_m, double suming, double stomachFullness, double deadThreshold, double m2mm, double dwmax){
 
         // This will NOT work within this code. Do it externally:
         // 1. Calculate maximum growth at a given time using Hurst et al 2010.
         // 2. Compare it with current weight. Then decide if psur = 0.
-        double refWeight = larva_wgt; // calculate maximum growth. As in Letcher et al 1996
         double aliveOrDead = 0;
 
-        if ((suming < 0.00000001)&&(stomachFullness < 0.0000001)) {
+        if ((stomachFullness < 0.01)) {
             aliveOrDead = 1;
         }
 
-        // if (refWeight*deadThreshold > new_larva_wgt) {
-        //     // Give a very high probability of death when belowe 75% (deadThreshold)
-        //     aliveOrDead = 10000;
-        // }
+        if (dwmax*deadThreshold > new_larva_wgt) {
+        //    Give a very high probability of death when belowe 75% (deadThreshold)
+            aliveOrDead = 100000;
+        }
 
         return aliveOrDead;
 

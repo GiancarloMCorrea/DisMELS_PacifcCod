@@ -130,9 +130,15 @@ public class YSLStage extends AbstractLHS {
     /** stomach state (units) */
     protected double mortinv = 0; // Here initial value of p_survival
     /** stomach state (units) */
+    protected double mortstarv = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double dwmax = 0; // Here initial value of p_survival
+    /** stomach state (units) */
     protected double avgRank = 0; // Here initial value of p_survival
     /** stomach state (units) */
     protected double avgSize = 0; // Here initial value of p_survival
+    /** stomach state (units) */
+    protected double stomachFullness = 0; // Here initial value of p_survival
     /** in situ pCO2 */
     protected double pCO2val = 0;
     /** growth rate for standard length (mm/d) */
@@ -386,9 +392,12 @@ public class YSLStage extends AbstractLHS {
             atts.setValue(YSLStageAttributes.PROP_stmsta,stmsta_2);   
             atts.setValue(YSLStageAttributes.PROP_psurvival,psurvival);  
             atts.setValue(YSLStageAttributes.PROP_mortfish,mortfish);  
-            atts.setValue(YSLStageAttributes.PROP_mortinv,mortinv);  
+            atts.setValue(YSLStageAttributes.PROP_mortinv,mortinv); 
+            atts.setValue(YSLStageAttributes.PROP_mortstarv,mortstarv);   
+            atts.setValue(YSLStageAttributes.PROP_dwmax,DW);   
             atts.setValue(YSLStageAttributes.PROP_avgRank,avgRank);  
-            atts.setValue(YSLStageAttributes.PROP_avgSize,avgSize);  
+            atts.setValue(YSLStageAttributes.PROP_avgSize,avgSize); 
+            atts.setValue(YSLStageAttributes.PROP_stomachFullness,stomachFullness);   
             atts.setValue(YSLStageAttributes.PROP_pCO2val,pCO2val);                                                                    
             atts.setValue(YSLStageAttributes.PROP_grSL,oldAtts.getValue(EggStageAttributes.PROP_grSL, grSL));
             atts.setValue(YSLStageAttributes.PROP_grDW,oldAtts.getValue(EggStageAttributes.PROP_grDW, grDW));
@@ -825,12 +834,12 @@ public class YSLStage extends AbstractLHS {
         // Create objects for output of BIOEN:
         Double[] bioEN_output = null; // output object of BIOEN calculation
         double gr_mg_fac = 0; // factor to avoid dry_wgt in IF 
+        double grRate = 0;
         double meta = 0;
         double sum_ing = 0;
         double assi = 0;
         double costRateOfMetabolism = 0.5; // check this number
         double activityCost = 0;
-        double stomachFullness = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
         double old_std_len = std_len;
         // Light (begin):
@@ -890,12 +899,13 @@ public class YSLStage extends AbstractLHS {
 
                 // yolk-sac absorption is incomplete
                 // growth standard equation (full capacity):
-                grDW = ((0.454 + 1.610*T - 0.069*T*T)*Math.exp(-6.725*dry_wgt))/100; // TODO: it is just easier to put the equation here. should be stage-specific?
+                // grRate = (2.99 + 0.772*T - 0.077*T*T)/100; 
+                grRate = ((0.454 + 1.610*T - 0.069*T*T)*Math.exp(-2.225*dry_wgt))/100; 
                 if((std_len > 5.5) && (std_len <= 6)) {
-                    grDW = grDW*(1 - facCO2*0.1);
+                    grRate = grRate*(1 - facCO2*0.1);
                 }
                 if((std_len > 6) && (std_len < 9)) {
-                    grDW = grDW*(1 + facCO2*0.2);
+                    grRate = grRate*(1 + facCO2*0.2);
                 }
 
                 meta = dtday*2.38e-7*Math.exp(0.088*T)*Math.pow(dry_wgt,0.9)*(1 + facCO2*0.1);
@@ -907,9 +917,10 @@ public class YSLStage extends AbstractLHS {
                     }
                 } 
                 activityCost = 0.5*meta*costRateOfMetabolism;
-                gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
-                stmsta = 0.3*0.06*dry_wgt; // just a placeholder. start value when progYSA>=1.0
-                dry_wgt += (gr_mg_fac - activityCost);
+                grDW = dry_wgt*(Math.exp(grRate*dtday) - 1);
+                stmsta = 0.3*0.06*dry_wgt; // just a placeholder. start value when progYSA>=1.0. 0.3 is stm thr. See TROND
+                gr_mg_fac = grDW - activityCost;
+                dry_wgt += gr_mg_fac;
                 // Just placeholders during YSA < 1
                 sum_ing = 0.1; 
                 stomachFullness = 1;
@@ -925,8 +936,9 @@ public class YSLStage extends AbstractLHS {
             if(progYSA >= 1.0) {
 
                 if(typeGrDW==YSLStageParameters.FCN_GrDW_NonEggStageSTDGrowthRate) {
-                    grDW = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt});
-                    gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
+                    grRate = (Double) fcnGrDW.calculate(new Double[]{T,dry_wgt});
+                    grDW = dry_wgt*(Math.exp(grRate*dtday) - 1);
+                    gr_mg_fac = grDW;
                     dry_wgt += gr_mg_fac;
 
                     // Feeding prob (classic approach):
@@ -937,8 +949,9 @@ public class YSLStage extends AbstractLHS {
                     if (rndFeed<=prFeed) hasFed = true;//feeding occurs, will transition to FDL stage
                 }  
                 if (typeGrDW==YSLStageParameters.FCN_GrDW_YSL_GrowthRate) {
-                    grDW = (Double) fcnGrDW.calculate(T);
-                    gr_mg_fac = dry_wgt*(Math.exp(grDW*dtday) - 1);
+                    grRate = (Double) fcnGrDW.calculate(T);
+                    grDW = dry_wgt*(Math.exp(grRate*dtday) - 1);
+                    gr_mg_fac = grDW;
                     dry_wgt += gr_mg_fac;
 
                     // Feeding prob (classic approach):
@@ -970,6 +983,9 @@ public class YSLStage extends AbstractLHS {
                     stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
                     gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
 
+                    //Calculate maxDW:
+                    dwmax += (grDW - activityCost);
+
                     // new weight in mg:
                     dry_wgt += gr_mg_fac;
 
@@ -980,7 +996,7 @@ public class YSLStage extends AbstractLHS {
                     std_len = IBMFunction_NonEggStageBIOENGrowthRateDW.getL_fromW(dry_wgt, old_std_len);
                     grSL = std_len - old_std_len;
 
-                    if(sum_ing > 0.00001) hasFed = true; // TODO: check this condition. should I use sum_ing?
+                    if(stomachFullness > 0.01) hasFed = true; //
 
                 }
 
@@ -990,10 +1006,11 @@ public class YSLStage extends AbstractLHS {
         
 
         // Survival rate (begin):
-        double[] mort_out = new double[4]; // for mortality output
-        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], old_dry_wgt, dry_wgt, sum_ing, stomachFullness); // mm2m = 0.001
+        double[] mort_out = new double[5]; // for mortality output
+        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], dry_wgt, sum_ing, stomachFullness, dwmax); // mm2m = 0.001
         mortfish = mort_out[2];
         mortinv = mort_out[3];
+        mortstarv = mort_out[4];
         // mort_out[0] = mortality. mort_out[1] = starved
         if(mort_out[1] > 1000) {
             psurvival = 0;
@@ -1251,8 +1268,11 @@ public class YSLStage extends AbstractLHS {
         atts.setValue(YSLStageAttributes.PROP_psurvival,psurvival);
         atts.setValue(YSLStageAttributes.PROP_mortfish,mortfish);
         atts.setValue(YSLStageAttributes.PROP_mortinv,mortinv);
+        atts.setValue(YSLStageAttributes.PROP_mortstarv,mortstarv);
+        atts.setValue(YSLStageAttributes.PROP_dwmax,dwmax);
         atts.setValue(YSLStageAttributes.PROP_avgRank,avgRank);
         atts.setValue(YSLStageAttributes.PROP_avgSize,avgSize);
+        atts.setValue(YSLStageAttributes.PROP_stomachFullness,stomachFullness);
         atts.setValue(YSLStageAttributes.PROP_pCO2val,pCO2val);
         atts.setValue(YSLStageAttributes.PROP_grSL,grSL);
         atts.setValue(YSLStageAttributes.PROP_grDW,grDW);
@@ -1283,8 +1303,11 @@ public class YSLStage extends AbstractLHS {
         psurvival    = atts.getValue(YSLStageAttributes.PROP_psurvival,psurvival);   
         mortfish    = atts.getValue(YSLStageAttributes.PROP_mortfish,mortfish);   
         mortinv    = atts.getValue(YSLStageAttributes.PROP_mortinv,mortinv);   
+        mortstarv    = atts.getValue(YSLStageAttributes.PROP_mortstarv,mortstarv); 
+        dwmax    = atts.getValue(YSLStageAttributes.PROP_dwmax,dwmax); 
         avgRank    = atts.getValue(YSLStageAttributes.PROP_avgRank,avgRank);   
         avgSize    = atts.getValue(YSLStageAttributes.PROP_avgSize,avgSize);   
+        stomachFullness    = atts.getValue(YSLStageAttributes.PROP_stomachFullness,stomachFullness);   
         pCO2val    = atts.getValue(YSLStageAttributes.PROP_pCO2val,pCO2val);   
         grSL        = atts.getValue(YSLStageAttributes.PROP_grSL,grSL); 
         grDW        = atts.getValue(YSLStageAttributes.PROP_grDW,grDW); 
