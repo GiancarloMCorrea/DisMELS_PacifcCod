@@ -387,6 +387,7 @@ public class YSLStage extends AbstractLHS {
             //need to base YSL DW on YSL SL regression because YSL DW doesn't include yolk-sac
             //double DW = (Double) fcnSLtoDW.calculate(SL);
             double DW = IBMFunction_NonEggStageBIOENGrowthRateDW.getW_fromL(SL);
+            double maxwgt = IBMFunction_NonEggStageBIOENGrowthRateDW.getW_fromL(SL);
             atts.setValue(YSLStageAttributes.PROP_DW,DW);
             double stmsta_2 = 0.3*0.06*DW; // stomach_threshold*gut_size*weight. just a placeholder. start value when progYSA>=1.0
             atts.setValue(YSLStageAttributes.PROP_stmsta,stmsta_2);   
@@ -394,7 +395,7 @@ public class YSLStage extends AbstractLHS {
             atts.setValue(YSLStageAttributes.PROP_mortfish,mortfish);  
             atts.setValue(YSLStageAttributes.PROP_mortinv,mortinv); 
             atts.setValue(YSLStageAttributes.PROP_mortstarv,mortstarv);   
-            atts.setValue(YSLStageAttributes.PROP_dwmax,DW);   
+            atts.setValue(YSLStageAttributes.PROP_dwmax,maxwgt);   
             atts.setValue(YSLStageAttributes.PROP_avgRank,avgRank);  
             atts.setValue(YSLStageAttributes.PROP_avgSize,avgSize); 
             atts.setValue(YSLStageAttributes.PROP_stomachFullness,stomachFullness);   
@@ -921,6 +922,10 @@ public class YSLStage extends AbstractLHS {
                 stmsta = 0.3*0.06*dry_wgt; // just a placeholder. start value when progYSA>=1.0. 0.3 is stm thr. See TROND
                 gr_mg_fac = grDW - activityCost;
                 dry_wgt += gr_mg_fac;
+
+                //Calculate maxDW:
+                dwmax += (grDW - activityCost);
+
                 // Just placeholders during YSA < 1
                 sum_ing = 0.1; 
                 stomachFullness = 1;

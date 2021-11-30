@@ -133,7 +133,7 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
         tmpMapValues.put(PROP_mortfish,  new Double(1));
         tmpMapValues.put(PROP_mortinv,  new Double(1));
         tmpMapValues.put(PROP_mortstarv,  new Double(1));
-        tmpMapValues.put(PROP_dwmax,  new Double(1));
+        tmpMapValues.put(PROP_dwmax,  new Double(0));
         tmpMapValues.put(PROP_avgRank,  new Double(1));
         tmpMapValues.put(PROP_avgSize,  new Double(1));
         tmpMapValues.put(PROP_stomachFullness,  new Double(1));
