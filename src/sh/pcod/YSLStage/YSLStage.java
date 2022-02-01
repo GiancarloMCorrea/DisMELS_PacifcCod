@@ -124,7 +124,7 @@ public class YSLStage extends AbstractLHS {
     /** stomach state (units) */
     protected double stmsta = 0; // Here initial value of stomach state. 
     /** stomach state (units) */
-    protected double psurvival = 1; // Here initial value of p_survival
+    protected double psurvival = 1000000; // Here initial value of p_survival
     /** stomach state (units) */
     protected double mortfish = 0; // Here initial value of p_survival
     /** stomach state (units) */
@@ -1012,7 +1012,7 @@ public class YSLStage extends AbstractLHS {
 
         // Survival rate (begin):
         double[] mort_out = new double[5]; // for mortality output
-        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len*0.001, eb, eb2[0], dry_wgt, sum_ing, stomachFullness, dwmax); // mm2m = 0.001
+        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len, eb, eb2[0], dry_wgt, sum_ing, stomachFullness, dwmax); // mm2m = 0.001
         mortfish = mort_out[2];
         mortinv = mort_out[3];
         mortstarv = mort_out[4];

@@ -764,7 +764,7 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
 
     // Mortality function:
 
-    public static double[] TotalMortality(double larval_m, double eb, double attCoeff, double new_larva_wgt, double suming, double stomachFullness, double dwmax) {
+    public static double[] TotalMortality(double larval_mm, double eb, double attCoeff, double new_larva_wgt, double suming, double stomachFullness, double dwmax) {
 
         double[] return_mort = new double[5]; // output object
 
@@ -773,20 +773,21 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         double em = 5.0E4;
         double visFieldShape = 0.5;
         double fishSwimVel = 0.10;      // Fish cruising velocity (m/s)
-        double aPred = 2.77e-6; // same as 0.01 h-1 as Kristiansen et al 2014
-        double bPred = -1.3;    // 0.78d-5=0.1/3600., -1.3 Parameters for purely size-dependent mortality Fiksen et al. 2002
-        double starvationMortality = 1.0e-6;
+        double aPred = 2.77e-6; // same as 0.01 h-1 as Kristiansen et al 2014. Original value in this study = 2.77e-6
+        double bPred = -1.3;    // Parameters for purely size-dependent mortality Fiksen et al. 2002. Original value in this study = -1.3
+        double starvationMortality = 7e-6;
         double setMort = 1; // 
         double ke_predator = 1;
         double fishDens = 0.0001; // fish density (fish/m^3)
         double deadThreshold = 0.75; // 75% based on Letcher et al 1996
-        int m2mm = 1000;
+        double m2mm = 1000;
         double beamAttCoeff = attCoeff*3;
+        double kval = 7e-6; // for Fiksen et al 2002 
 
         // Values of fish and larval length are all in meters in this subroutine,
         // which differs from the rest of the routines that are all in mm.
-        double larvalWidth   = larvalShape*larval_m;
-        double image = larvalWidth*larval_m*0.75;
+        double larvalWidth   = larvalShape*larval_mm;
+        double image = larvalWidth*larval_mm*0.75;
 
         double ier = 0;
         double visual = 0.0;
@@ -800,10 +801,14 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
             visual = getr_out[1]; // 0 = new ier, 1 = new 'visual' value after getr
         }
 
+        // For Fiksen etal 2002:
+        double pe = 0.92/(1 + Math.exp((larval_mm-16.3)/4.13)); //Eq 6 in Fiksen et al 2002 
+
         // Calculate lethal encounter rate with fish setMort is either 0 (off) or 1 (on)
-        double fishMortality = setMort*(visFieldShape*Math.PI*Math.pow(visual,2)*fishSwimVel*fishDens);
-        double invertebrateMortality = setMort*OtherPred(larval_m, aPred, bPred, m2mm);
-        double starved = AliveOrDead(new_larva_wgt, larval_m, suming, stomachFullness, deadThreshold, m2mm, dwmax);
+        // double fishMortality = setMort*(visFieldShape*Math.PI*Math.pow(visual,2)*fishSwimVel*fishDens);
+        double fishMortality = kval*pe*Math.pow(visual/m2mm,2);
+        double invertebrateMortality = setMort*OtherPred(larval_mm, aPred, bPred);
+        double starved = AliveOrDead(new_larva_wgt, stomachFullness, deadThreshold, dwmax);
         double mortality = (invertebrateMortality + fishMortality + starved*starvationMortality);
 
         return_mort[0] = mortality;
@@ -817,15 +822,15 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
     }
 
 
-    public static double OtherPred(double larval_m, double aPred, double bPred, double m2mm){
+    public static double OtherPred(double larval_mm, double aPred, double bPred){
 
         // As in Fiksen and Jorgensen 2011:
-        double otherPred = aPred*Math.pow(larval_m*m2mm, bPred);
+        double otherPred = aPred*Math.pow(larval_mm, bPred);
         return otherPred;
 
     }
 
-    public static double AliveOrDead(double new_larva_wgt, double larval_m, double suming, double stomachFullness, double deadThreshold, double m2mm, double dwmax){
+    public static double AliveOrDead(double new_larva_wgt, double stomachFullness, double deadThreshold, double dwmax){
 
         // This will NOT work within this code. Do it externally:
         // 1. Calculate maximum growth at a given time using Hurst et al 2010.

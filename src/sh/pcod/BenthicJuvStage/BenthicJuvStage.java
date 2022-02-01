@@ -116,7 +116,7 @@ public class BenthicJuvStage extends AbstractLHS {
     /** stomach state (units) */
     protected double stmsta = 0;
     /** stomach state (units) */
-    protected double psurvival = 1;
+    protected double psurvival = 1000000;
     /** stomach state (units) */
     protected double mortfish = 0; // Here initial value of p_survival
     /** stomach state (units) */
