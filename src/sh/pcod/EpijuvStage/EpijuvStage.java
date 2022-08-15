@@ -117,6 +117,8 @@ public class EpijuvStage extends AbstractLHS {
     protected double std_len = 0;
     /** dry weight (mg) */
     protected double dry_wgt = 0;
+    /** age (dph) */
+    protected double ageFromYSL = 0;
     /** stomach state (units) */
     protected double stmsta = 0;
     /** stomach state (units) */
@@ -159,6 +161,12 @@ public class EpijuvStage extends AbstractLHS {
     protected double neocalanusShelf = 0;
      /** in situ neocalanoid (large copepods) density (mg/m^3, dry wt) */
     protected double microzoo = 0;
+     /** in situ neocalanoid density (mg/m^3, dry wt) */
+    protected double eps = 0;
+     /** in situ neocalanoid density (mg/m^3, dry wt) */
+    protected double eb = 0;
+     /** in situ neocalanoid density (mg/m^3, dry wt) */
+    protected double ebtwozero = 0;
     /** total length (mm) */
     protected double tot_len = 0;
     /** wet weight (mg) */
@@ -750,26 +758,23 @@ public class EpijuvStage extends AbstractLHS {
         copepod    = i3d.interpolateValue(pos,FIELD_Cop,Interpolator3D.INTERP_VAL);
         euphausiid = i3d.interpolateValue(pos,FIELD_Eup,Interpolator3D.INTERP_VAL);
         euphausiidsShelf = i3d.interpolateValue(pos,EupS,Interpolator3D.INTERP_VAL);
+        double euphausiids_tot = euphausiid + euphausiidsShelf;
         neocalanus = i3d.interpolateValue(pos,FIELD_NCa,Interpolator3D.INTERP_VAL);
         neocalanusShelf  = i3d.interpolateValue(pos,NCaS,Interpolator3D.INTERP_VAL);
-        double microzoo_large  = i3d.interpolateValue(pos,Mzl,Interpolator3D.INTERP_VAL);
         double phytoL = i3d.interpolateValue(pos,PhL,Interpolator3D.INTERP_VAL);
         double phytoS = i3d.interpolateValue(pos,PhS,Interpolator3D.INTERP_VAL);
         double tauX = i3d.interpolateValue(pos2d,Su,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double tauY = i3d.interpolateValue(pos2d,Sv,Interpolator3D.INTERP_VAL); // 3D interpolator but should use 2D internally
         double chlorophyll = (phytoL/25) + (phytoS/65); // calculate chlorophyll (mg/m^-3) 
         // values 25 and 65 based on Kearney et al 2018 Table A4
-        double microzoo_small  = i3d.interpolateValue(pos,Mzs,Interpolator3D.INTERP_VAL);
-        microzoo = microzoo_small + microzoo_large; // total microzooplankton
+        microzoo = 0; // not important
         pCO2val  = i3d.interpolateValue(pos,pCO2,Interpolator3D.INTERP_VAL);
         // Delete negative (imposible) values:
         if(chlorophyll<0.0) chlorophyll=0; 
         if(copepod<0.0) copepod=0; 
-        if(euphausiid<0.0) euphausiid=0; 
-        if(euphausiidsShelf<0.0) euphausiidsShelf=0; 
+        if(euphausiids_tot<0.0) euphausiids_tot=0; 
         if(neocalanus<0.0) neocalanus=0; 
         if(neocalanusShelf<0.0) neocalanusShelf=0; 
-        if(microzoo<0.0) microzoo=0; 
 
         double[] uvw = calcUVW(pos,dt,T);//this also sets "attached" and may change pos[2] to 0
         if (attached){
@@ -796,6 +801,13 @@ public class EpijuvStage extends AbstractLHS {
             if (debug) logger.info("Depth after corrector step = "+(-i3d.calcZfromK(pos[0],pos[1],pos[2])));
         }
         
+        if(depth < 0) depth = 0.01;
+
+        // SCALE IMPORTANT VARIABLES: 
+        dry_wgt = dry_wgt*1E-03; // in g
+        dwmax = dwmax*1E-03; // in g
+        stmsta = stmsta*1E-03; // in g
+
         time = time+dt;
         double dtday = dt/86400;        //dt=biolmodel time step. At 72/day, dt(sec)= 1200; dtday=0.014
 
@@ -803,6 +815,9 @@ public class EpijuvStage extends AbstractLHS {
         Double[] bioEN_output = null; // output object of BIOEN calculation
         double gr_mg_fac = 0; // factor to avoid dry_wgt in IF 
         double meta = 0;
+        double metamax = 0;
+        double grDWmax = 0;
+        double activityCostmax = 0;
         double sum_ing = 0;
         double assi = 0;
         double old_dry_wgt = dry_wgt; // save previous dry_wgt
@@ -810,7 +825,6 @@ public class EpijuvStage extends AbstractLHS {
         // Light (begin):
         // create object for light calculation:
         double[] eb2 = new double[2]; // K parameter + second part of Eb equation
-        double eb = 0; // create Eb object
         CalendarIF cal2 = null;
         double[] ltemp = new double[3];
         double[] ltemp2 = new double[2];
@@ -819,9 +833,14 @@ public class EpijuvStage extends AbstractLHS {
         double maxLight = ltemp[0]/0.217; // see line 714 in ibm.py
         ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal2.getYearDay(), maxLight); // see line 715 in ibm.py
         eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll, depth, bathym); // K parameter and second part of Eb equation
-        eb = 0.42*ltemp2[1]*eb2[1]; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
+        eb = 0.42*ltemp2[1]*eb2[1]*1E+15; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
+        double ebs_org = eb*1E-15;
+        ebtwozero = eb2[0];
         // Light (end):
 
+        // Update ageFromYSL:
+        ageFromYSL += dt/86400; 
+        
         // SL:
         if (typeGrSL==EpijuvStageParameters.FCN_GrSL_NonEggStageSTDGrowthRate) {
             grSL = (Double) fcnGrSL.calculate(new Double[]{T,std_len});
@@ -849,7 +868,7 @@ public class EpijuvStage extends AbstractLHS {
             // Turbulence and wind (end)
 
             // Bioenergetic growth calculation:
-            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,eb,windX,windY,depth,stmsta,eb2[0],euphausiid,euphausiidsShelf,neocalanusShelf,neocalanus,copepod,microzoo,pCO2val}); //should length be at t or t-1?
+            bioEN_output = (Double[]) fcnGrDW.calculate(new Double[]{T,old_dry_wgt,dt,dtday,old_std_len,ebs_org,windX,windY,depth,stmsta,eb2[0],euphausiids_tot,neocalanusShelf,neocalanus,copepod,pCO2val,ageFromYSL,dwmax}); //should length be at t or t-1?
             grDW = bioEN_output[0]; // grDW is gr_mg in TROND here
             meta = bioEN_output[1];
             sum_ing = bioEN_output[2];
@@ -857,15 +876,19 @@ public class EpijuvStage extends AbstractLHS {
             stomachFullness = bioEN_output[4];
             avgRank = bioEN_output[5];
             avgSize = bioEN_output[6];
-            double costRateOfMetabolism = 0.5; // check this number
+            eps = bioEN_output[7]*1E+10;
+            metamax = bioEN_output[8]; 
+            grDWmax = bioEN_output[9]; 
+            double costRateOfMetabolism = 1; // check this number
             double activityCost = 1*meta*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
+            activityCostmax = 1*metamax*costRateOfMetabolism; // TODO: (diffZ/maxDiffZ) = 0.5, but this should change based on vertical movement
 
             // Update values:
             stmsta = Math.max(0, Math.min(0.06*old_dry_wgt, stmsta + sum_ing)); // gut_size= 0.06. TODO: check if sum_ing is 500 approx makes sense
             gr_mg_fac = Math.min(grDW + meta, stmsta*assi) - meta - activityCost; // Here grDW is as gr_mg in TROND
 
             //Calculate maxDW:
-            dwmax += (grDW - activityCost);
+            dwmax += (grDWmax - activityCostmax);
 
             // New weight in mg:
             dry_wgt += gr_mg_fac;
@@ -888,21 +911,29 @@ public class EpijuvStage extends AbstractLHS {
         
         // Survival rate (begin):
         double[] mort_out = new double[5]; // for mortality output
-        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len, eb, eb2[0], dry_wgt, sum_ing, stomachFullness, dwmax); // mm2m = 0.001
+        mort_out = IBMFunction_NonEggStageBIOENGrowthRateDW.TotalMortality(old_std_len, ebs_org, eb2[0], dry_wgt, stomachFullness, dwmax); // mm2m = 0.001
         mortfish = mort_out[2];
         mortinv = mort_out[3];
         mortstarv = mort_out[4];
-        // mort_out[0] = mortality. mort_out[1] = starved
         if(mort_out[1] > 1000) {
             psurvival = 0;
+            alive=false;
+            active=false;
         } else {
             psurvival = psurvival*Math.exp(-dt*mort_out[0]);
         }
         // Survival rate (end):
 
+        // SCALE IMPORTANT VARIABLES:
+        dry_wgt = dry_wgt*1E+03; // in g
+        dwmax = dwmax*1E+03; // in g
+        stmsta = stmsta*1E+03; // in g
+
+        // END ---------------------------
+
         updatePosition(pos);
         updateEnvVars(pos);
-        updateNum(dt);
+        updateNum(dt, mort_out[0]);
         updateAge(dt);
         
         //check for exiting grid
@@ -1096,7 +1127,7 @@ public class EpijuvStage extends AbstractLHS {
      * 
      * @param dt - time step in seconds
      */
-    private void updateNum(double dt) {
+    private void updateNum(double dt, double totMort) {
         //{WTS_NEW 2012-07-26:
         double mortalityRate = 0.0D;//in unis of [days]^-1
         if (typeMort==EpijuvStageParameters.FCN_Mortality_ConstantMortalityRate){
@@ -1128,7 +1159,8 @@ public class EpijuvStage extends AbstractLHS {
                     (stageTransRate/totRate)*number*(1-Math.exp(-dt*totRate/86400));
        
         }
-        number = number*Math.exp(-dt*totRate/86400);
+        // number = number*Math.exp(-dt*totRate/86400);
+        number = number*Math.exp(-dt*totMort);
     }
     
     @Override
@@ -1211,6 +1243,7 @@ public class EpijuvStage extends AbstractLHS {
         atts.setValue(EpijuvStageAttributes.PROP_attached,   attached);
         atts.setValue(EpijuvStageAttributes.PROP_SL,         std_len);
         atts.setValue(EpijuvStageAttributes.PROP_DW,         dry_wgt);
+        atts.setValue(EpijuvStageAttributes.PROP_ageFromYSL,         ageFromYSL);
         atts.setValue(EpijuvStageAttributes.PROP_stmsta,     stmsta);
         atts.setValue(EpijuvStageAttributes.PROP_psurvival,  psurvival);
         atts.setValue(EpijuvStageAttributes.PROP_mortfish,mortfish);
@@ -1232,6 +1265,9 @@ public class EpijuvStage extends AbstractLHS {
         atts.setValue(EpijuvStageAttributes.PROP_euphausiidShelf, euphausiidsShelf);
         atts.setValue(EpijuvStageAttributes.PROP_neocalanusShelf, neocalanusShelf);
         atts.setValue(EpijuvStageAttributes.PROP_microzoo, microzoo);
+        atts.setValue(EpijuvStageAttributes.PROP_eps,eps);
+        atts.setValue(EpijuvStageAttributes.PROP_eb,eb);
+        atts.setValue(EpijuvStageAttributes.PROP_ebtwozero,ebtwozero);
         atts.setValue(EpijuvStageAttributes.PROP_TL,         tot_len);
         atts.setValue(EpijuvStageAttributes.PROP_WW,         wet_wgt);
         atts.setValue(EpijuvStageAttributes.PROP_grTL,       grTL);
@@ -1248,6 +1284,7 @@ public class EpijuvStage extends AbstractLHS {
         attached    = atts.getValue(EpijuvStageAttributes.PROP_attached,    attached);
         std_len     = atts.getValue(EpijuvStageAttributes.PROP_SL,          std_len);
         dry_wgt     = atts.getValue(EpijuvStageAttributes.PROP_DW,          dry_wgt);
+        ageFromYSL     = atts.getValue(EpijuvStageAttributes.PROP_ageFromYSL,          ageFromYSL);
         stmsta      = atts.getValue(EpijuvStageAttributes.PROP_stmsta,      stmsta);
         psurvival    = atts.getValue(EpijuvStageAttributes.PROP_psurvival,  psurvival);
         mortfish      = atts.getValue(EpijuvStageAttributes.PROP_mortfish,mortfish);
@@ -1268,6 +1305,9 @@ public class EpijuvStage extends AbstractLHS {
         euphausiid  = atts.getValue(EpijuvStageAttributes.PROP_euphausiid,  euphausiid);
         euphausiidsShelf  = atts.getValue(EpijuvStageAttributes.PROP_euphausiidShelf,  euphausiidsShelf);
         neocalanusShelf  = atts.getValue(EpijuvStageAttributes.PROP_neocalanusShelf,  neocalanusShelf);
+        eps  = atts.getValue(EpijuvStageAttributes.PROP_eps,eps);
+        eb  = atts.getValue(EpijuvStageAttributes.PROP_eb,eb);
+        ebtwozero  = atts.getValue(EpijuvStageAttributes.PROP_ebtwozero,ebtwozero);
         microzoo  = atts.getValue(EpijuvStageAttributes.PROP_microzoo,  microzoo);
         tot_len     = atts.getValue(EpijuvStageAttributes.PROP_TL,          tot_len);
         wet_wgt     = atts.getValue(EpijuvStageAttributes.PROP_WW,          wet_wgt);

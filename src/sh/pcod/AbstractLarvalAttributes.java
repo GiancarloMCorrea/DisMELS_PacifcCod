@@ -27,10 +27,11 @@ import wts.models.DisMELS.framework.IBMAttributes.IBMAttributeDouble;
 public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
     
     /** Number of new attributes defined by this class */
-    public static final int numNewAttributes = 24;
+    public static final int numNewAttributes = 28;
     public static final String PROP_attached    = "attached";
     public static final String PROP_SL          = "standard length (mm)";
     public static final String PROP_DW          = "dry weight (mg)";
+    public static final String PROP_ageFromYSL  = "age (dph)";
     public static final String PROP_stmsta      = "stomach state (units)";
     public static final String PROP_psurvival   = "survival probability";
     public static final String PROP_mortfish   = "mortality fish predation";
@@ -52,6 +53,9 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
     public static final String PROP_euphausiid  = "Euphausiids mg/m^3 dry wt C";
     public static final String PROP_neocalanusShelf  = "Neocalanoids Shelf mg/m^3 dry wt";
     public static final String PROP_microzoo  = "Microzooplankton mg/m^3 dry wt C";
+    public static final String PROP_eps  = "Eps for calculation";
+    public static final String PROP_eb  = "Light for calculation";
+    public static final String PROP_ebtwozero  = "Light two for calculation";
 
     /** these fields HIDE static fields from superclass and should incorporate ALL information from superclasses */
     protected static final int numAttributes = AbstractLHSAttributes.numAttributes+numNewAttributes;
@@ -96,6 +100,7 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
             key = PROP_attached;   keys.add(key); mapAttributes.put(key,new IBMAttributeBoolean(key,"attached"));
             key = PROP_SL;         keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"SL"));
             key = PROP_DW;         keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"DW"));
+            key = PROP_ageFromYSL; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"ageFromYSL"));
             key = PROP_stmsta;     keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"stmsta"));
             key = PROP_psurvival;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"psurvival"));
             key = PROP_mortfish;  keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"mortfish"));
@@ -117,6 +122,9 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
             key = PROP_neocalanus; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"neocalanus"));
             key = PROP_neocalanusShelf; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"neocalanusShelf"));
             key = PROP_microzoo; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"microzoo"));
+            key = PROP_eps; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"eps"));
+            key = PROP_eb; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"eb"));
+            key = PROP_ebtwozero; keys.add(key); mapAttributes.put(key,new IBMAttributeDouble(key,"ebtwozero"));
 
             Iterator<String> it = keys.iterator();
             int j = 0; it.next();//skip typeName
@@ -128,6 +136,7 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
         tmpMapValues.put(PROP_attached,   false);
         tmpMapValues.put(PROP_SL,         new Double(0));
         tmpMapValues.put(PROP_DW,         new Double(0));
+        tmpMapValues.put(PROP_ageFromYSL, new Double(0));
         tmpMapValues.put(PROP_stmsta,     new Double(0));
         tmpMapValues.put(PROP_psurvival,  new Double(1));
         tmpMapValues.put(PROP_mortfish,  new Double(1));
@@ -149,6 +158,9 @@ public abstract class AbstractLarvalAttributes extends AbstractLHSAttributes {
         tmpMapValues.put(PROP_neocalanus, new Double(-1));
         tmpMapValues.put(PROP_neocalanusShelf, new Double(-1));
         tmpMapValues.put(PROP_microzoo, new Double(-1));
+        tmpMapValues.put(PROP_eps, new Double(0));
+        tmpMapValues.put(PROP_eb, new Double(0));
+        tmpMapValues.put(PROP_ebtwozero, new Double(0));
         mapValues = tmpMapValues;//assign to super
     }
 
