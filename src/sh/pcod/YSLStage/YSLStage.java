@@ -1043,13 +1043,13 @@ public class YSLStage extends AbstractLHS {
         mortfish = mort_out[2];
         mortinv = mort_out[3];
         mortstarv = mort_out[4];
-        if(mort_out[1] > 1000) {
-            psurvival = 0;
-            alive=false;
-            active=false;
-        } else {
+        //if(mort_out[1] > 1000) {
+        //    psurvival = 0;
+        //    alive=false;
+        //    active=false;
+        //} else {
             psurvival = psurvival*Math.exp(-dt*mort_out[0]);
-        }
+        //}
         // Survival rate (end):
 
 

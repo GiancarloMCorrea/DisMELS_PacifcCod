@@ -851,9 +851,9 @@ public class IBMFunction_NonEggStageBIOENGrowthRateDW extends AbstractIBMFunctio
         // Resilient:
         // double outVal = Math.min(1, (1/665)*(Math.exp(co2_val*0.005) - 1)); 
         // Non-resilient:
-        double outVal = Math.min(1, Math.max(0, -0.5 + (1/1000)*co2_val)); // range: 500 - 1500 uatm (0 to 1)
+        // double outVal = Math.min(1, Math.max(0, -0.5 + (1/1000)*co2_val)); // range: 500 - 1500 uatm (0 to 1)
         // None:
-        // double outVal = 0;
+        double outVal = 0;
 
         return outVal;
 

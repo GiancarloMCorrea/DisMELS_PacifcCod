@@ -776,7 +776,7 @@ public class FDLStage extends AbstractLHS {
         double maxLight = ltemp[0]/0.217; // see line 714 in ibm.py
         ltemp2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLightSurlig(lat,cal2.getYearDay(), maxLight); // see line 715 in ibm.py
         eb2 = IBMFunction_NonEggStageBIOENGrowthRateDW.calcLight(chlorophyll, depth, bathym); // second part of Eb equation
-        eb = 0.42*ltemp2[1]*eb2[1]*1E+15; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14
+        eb = 0.42*ltemp2[1]*eb2[1]*1E+15; // see line 727 in ibm.py. This is Eb. 0.42 as in Kearney et al 2020 Eq A14. Values to plot
         double ebs_org = eb*1E-15;
         ebtwozero = eb2[0];
         // Light (end):
